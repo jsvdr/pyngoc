@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pyngo - Compilador</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+
+  <body>
+    <main class="app">
+      <section class="panel programa-panel">
+        <h2>PROGRAMA:</h2>
+
+        <label for="fileInput" class="file-button">Cargar Archivo</label>
+
+        <input type="file" id="fileInput" accept=".txt,.pyn" hidden />
+
+        <textarea id="codigo" spellcheck="false">
+{
+    int contador = 1;
+    int limite = 10;
+    bool activo = true;
+
+    for contador < limite {
+        if contador > 5 {
+            print(contador & 2);
+        } else {
+            print(contador);
+        };
+        contador = contador @ 1;
+    };
+}</textarea
+        >
+      </section>
+
+      <section class="panel tokens-panel">
+        <button id="btnTokens" class="tokens-button">TOKENS</button>
+
+        <textarea
+          id="tokens"
+          readonly
+          spellcheck="false"
+          placeholder="Los tokens aparecerán aquí..."
+        ></textarea>
+      </section>
+
+      <section id="erroresPanel" class="panel errores-panel hidden">
+        <h2>Caracter Inválido</h2>
+
+        <textarea id="errores" readonly spellcheck="false"></textarea>
+      </section>
+    </main>
+
+    <script src="script.js"></script>
+  </body>
+</html>

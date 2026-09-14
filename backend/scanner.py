@@ -1,91 +1,159 @@
-KEYWORDS = {"if", "else", "for", "print", "int", "bool", "true", "false"}
+from tokens import Token, TokenKind
+
+KEYWORDS = {
+    "if": TokenKind.IF,
+    "else": TokenKind.ELSE,
+    "for": TokenKind.FOR,
+    "print": TokenKind.PRINT,
+    "int": TokenKind.INT,
+    "bool": TokenKind.BOOL,
+    "true": TokenKind.TRUE,
+    "false": TokenKind.FALSE,
+}
 
 
-def analizar_lexico(codigo):
-    tokens = []
-    errores = []
+class Scanner:
+    def __init__(self, codigo):
+        self.codigo = codigo
+        self.tokens = []
+        self.errores = []
 
-    linea = 1
-    indice = 0
-    longitud = len(codigo)
+        self.indice = 0
+        self.linea = 1
 
-    while indice < longitud:
-        char = codigo[indice]
+    def analizar(self):
+        while self.indice < len(self.codigo):
+            char = self.codigo[self.indice]
 
-        # Espacios y saltos de línea
-        if char == "\n":
-            linea += 1
-            indice += 1
-            continue
+            # Espacios
+            if char.isspace():
+                if char == "\n":
+                    self.linea += 1
 
-        if char.isspace():
-            indice += 1
-            continue
+                self.indice += 1
+                continue
 
-        # ID o PR
-        if char.isalpha():
-            start = indice
+            # ID o palabra reservada
+            if char.isalpha():
+                self.leer_palabra()
+                continue
 
-            while indice < longitud and codigo[indice].isalnum():
-                indice += 1
+            # NUM
+            if char.isdigit():
+                self.leer_numero()
+                continue
 
-            lexema = codigo[start:indice]
+            # ==
+            if self.codigo[self.indice : self.indice + 2] == "==":
+                self.agregar_token(TokenKind.EQ, "==")
+                self.indice += 2
+                continue
 
-            if lexema in KEYWORDS:
-                tokens.append(f"<TKN KEYWORD {lexema}>")
-            else:
-                tokens.append(f"<TKN ID {lexema}>")
+            # >
+            if char == ">":
+                self.agregar_token(TokenKind.GREATER, ">")
+                self.indice += 1
+                continue
 
-            continue
+            # <
+            if char == "<":
+                self.agregar_token(TokenKind.LESS, "<")
+                self.indice += 1
+                continue
 
-        # Números
-        if char.isdigit():
-            start = indice
+            # =
+            if char == "=":
+                self.agregar_token(TokenKind.ASSIGN, "=")
+                self.indice += 1
+                continue
 
-            while indice < longitud and codigo[indice].isdigit():
-                indice += 1
+            # @
+            if char == "@":
+                self.agregar_token(TokenKind.AT, "@")
+                self.indice += 1
+                continue
 
-            lexema = codigo[start:indice]
+            # #
+            if char == "#":
+                self.agregar_token(TokenKind.HASH, "#")
+                self.indice += 1
+                continue
 
-            tokens.append(f"<TKN NUM {lexema}>")
+            # &
+            if char == "&":
+                self.agregar_token(TokenKind.AMPERSAND, "&")
+                self.indice += 1
+                continue
 
-            continue
+            # |
+            if char == "|":
+                self.agregar_token(TokenKind.PIPE, "|")
+                self.indice += 1
+                continue
 
-        # Operador ==
-        if indice + 1 < longitud and codigo[indice : indice + 2] == "==":
-            tokens.append("<TKN OPREL ==>")
+            # {
+            if char == "{":
+                self.agregar_token(TokenKind.LBRACE, "{")
+                self.indice += 1
+                continue
 
-            indice += 2
+            # }
+            if char == "}":
+                self.agregar_token(TokenKind.RBRACE, "}")
+                self.indice += 1
+                continue
 
-            continue
+            # ;
+            if char == ";":
+                self.agregar_token(TokenKind.SEMICOLON, ";")
+                self.indice += 1
+                continue
 
-        # Operadores aritméticos
-        if char in {"@", "#", "&", "|"}:
-            tokens.append(f"<TKN OPARIT {char}>")
+            # (
+            if char == "(":
+                self.agregar_token(TokenKind.LPAREN, "(")
+                self.indice += 1
+                continue
 
-            indice += 1
+            # )
+            if char == ")":
+                self.agregar_token(TokenKind.RPAREN, ")")
+                self.indice += 1
+                continue
 
-            continue
+            # Caracter inválido
+            self.errores.append(f"Línea {self.linea}: Caracter inválido '{char}'")
 
-        # Operadores relacionales
-        if char in {">", "<"}:
-            tokens.append(f"<TKN OPREL {char}>")
+            self.indice += 1
 
-            indice += 1
+        self.tokens.append(Token(TokenKind.EOF, "", self.linea))
 
-            continue
+        return self.tokens, self.errores
 
-        # Puntuación y asignación
-        if char in {"{", "}", ";", "=", "(", ")"}:
-            tokens.append(f"<TKN PUNT {char}>")
+    def leer_palabra(self):
+        inicio = self.indice
 
-            indice += 1
+        while self.indice < len(self.codigo) and self.codigo[self.indice].isalnum():
+            self.indice += 1
 
-            continue
+        lexema = self.codigo[inicio : self.indice]
 
-        # Caracter inválido
-        errores.append(f"Línea {linea}: Caracter inválido '{char}'")
+        if lexema in KEYWORDS:
+            tipo = KEYWORDS[lexema]
+        else:
+            tipo = TokenKind.ID
 
-        indice += 1
+        self.agregar_token(tipo, lexema)
 
-    return tokens, errores
+    def leer_numero(self):
+        inicio = self.indice
+
+        while self.indice < len(self.codigo) and self.codigo[self.indice].isdigit():
+            self.indice += 1
+
+        lexema = self.codigo[inicio : self.indice]
+
+        self.agregar_token(TokenKind.NUM, lexema)
+
+    def agregar_token(self, tipo, lexema):
+        self.tokens.append(Token(tipo, lexema, self.linea))

@@ -35,7 +35,6 @@ class Parser:
 
     # DECL → DECL_VAR | ASIGNACION | IF | FOR | PRINT
     def decl(self):
-
         if self.es(TokenKind.INT) or self.es(TokenKind.BOOL):
             self.decl_var()
             return
@@ -123,7 +122,6 @@ class Parser:
 
     # TIPO_DATO → int | bool
     def tipo_dato(self):
-
         if self.es(TokenKind.INT) or self.es(TokenKind.BOOL):
             self.siguiente()
             return
@@ -160,7 +158,6 @@ class Parser:
 
     # FACTOR → ID | NUM | BOOL | ( EXPRESION )
     def factor(self):
-
         if self.es(TokenKind.ID):
             self.siguiente()
             return

@@ -1,0 +1,14 @@
+[project]
+name = "compiler"
+requires-python = ">=3.12"
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "PLR1714"]
+ignore = ["ERA001"]
+
+[tool.ruff.format]
+quote-style = "double"

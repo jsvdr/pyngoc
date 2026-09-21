@@ -2,14 +2,18 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
     <title>Pyngo - Compilador</title>
+
     <link rel="stylesheet" href="style.css" />
   </head>
 
   <body>
     <main class="app">
-      <section class="panel">
+      <!-- PROGRAMA -->
+      <section class="panel programa-panel">
         <div class="panel-header">
           <h2>PROGRAMA:</h2>
 
@@ -36,12 +40,9 @@
         >
       </section>
 
-      <section class="panel">
-        <div class="panel-header">
-          <h2>TOKENS:</h2>
-
-          <button id="btnTokens" class="action-button">Tokens</button>
-        </div>
+      <!-- TOKENS -->
+      <section class="panel tokens-panel">
+        <button id="btnTokens" class="main-button">TOKENS</button>
 
         <textarea
           id="tokens"
@@ -51,24 +52,23 @@
         ></textarea>
       </section>
 
-      <section class="panel">
-        <div class="panel-header">
-          <h2>ERRORES:</h2>
+      <!-- PARSER + SEMÁNTICO -->
+      <section id="erroresPanel" class="panel errores-panel">
+        <div class="analysis-buttons">
+          <button id="btnParser" class="analysis-button">Parser</button>
+
+          <button id="btnSemantico" class="analysis-button">Semántico</button>
         </div>
 
-        <div class="parser-buttons">
-          <button id="btnParser" class="action-button">Parser</button>
-
+        <div class="clear-container">
           <button id="btnLimpiar" class="clear-button">Limpiar</button>
         </div>
-
-        <div id="parserResultado" class="parser-result"></div>
 
         <textarea
           id="errores"
           readonly
           spellcheck="false"
-          placeholder="Los errores aparecerán aquí..."
+          placeholder="Resultado del análisis..."
         ></textarea>
       </section>
     </main>

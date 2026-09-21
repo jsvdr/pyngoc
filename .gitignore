@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtualenv
+.venv/
+venv/
+ENV/
+
+# Ruff
+.ruff_cache/
+
+# Dist
+dist/
+build/
+*.egg-info/
+
+# OS / editores
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

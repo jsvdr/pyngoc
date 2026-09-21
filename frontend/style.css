@@ -5,8 +5,11 @@
 body {
   margin: 0;
   min-height: 100vh;
+
   font-family: Arial, sans-serif;
+
   background-color: #f5f5f5;
+
   color: #111;
 }
 
@@ -15,15 +18,24 @@ body {
   min-height: 100vh;
 
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+
+  grid-template-columns:
+    1fr
+    1fr
+    1fr;
 
   gap: 20px;
+
   padding: 20px;
+
+  align-items: start;
 }
 
 .panel {
-  height: 50vh;
   min-width: 0;
+
+  height: 50vh;
+  min-height: 400px;
 
   display: flex;
   flex-direction: column;
@@ -31,47 +43,92 @@ body {
   padding: 15px;
 
   background-color: #e0e0e0;
+
   border-radius: 10px;
 }
 
 .panel-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-
-  margin-bottom: 10px;
+  flex-shrink: 0;
 }
 
-.panel-header h2 {
-  margin: 0;
-  margin-right: auto;
+.panel h2 {
+  margin: 0 0 10px;
 
   font-size: 16px;
   font-weight: bold;
 }
 
 .file-button {
-  padding: 10px 14px;
+  display: block;
+
+  width: 100%;
+
+  padding: 12px;
+
+  margin-bottom: 10px;
 
   border-radius: 6px;
 
   background-color: #1f6aa5;
+
   color: white;
 
+  text-align: center;
+
   font-size: 14px;
+
   cursor: pointer;
+
+  transition: background-color 0.2s;
 }
 
-.file-button:hover {
+.file-button:hover,
+.main-button:hover,
+.analysis-button:hover {
   background-color: #144d75;
 }
 
-.action-button,
-.clear-button {
-  padding: 10px 14px;
+.main-button {
+  width: 100%;
+
+  padding: 12px;
+
+  margin-bottom: 10px;
 
   border: none;
   border-radius: 6px;
+
+  background-color: #1f6aa5;
+
+  color: white;
+
+  font-size: 14px;
+  font-weight: bold;
+
+  cursor: pointer;
+
+  flex-shrink: 0;
+}
+
+.analysis-buttons {
+  display: flex;
+
+  gap: 10px;
+
+  margin-bottom: 10px;
+
+  flex-shrink: 0;
+}
+
+.analysis-button {
+  flex: 1;
+
+  padding: 12px;
+
+  border: none;
+  border-radius: 6px;
+
+  background-color: #1f6aa5;
 
   color: white;
 
@@ -81,46 +138,39 @@ body {
   cursor: pointer;
 }
 
-.action-button {
-  background-color: #1f6aa5;
-}
+.clear-container {
+  display: flex;
 
-.action-button:hover {
-  background-color: #144d75;
+  justify-content: flex-end;
+
+  margin-bottom: 10px;
+
+  flex-shrink: 0;
 }
 
 .clear-button {
-  background-color: #777;
+  padding: 8px 14px;
+
+  border: none;
+  border-radius: 6px;
+
+  background-color: #666;
+
+  color: white;
+
+  font-size: 14px;
+  font-weight: bold;
+
+  cursor: pointer;
 }
 
 .clear-button:hover {
   background-color: #555;
 }
 
-.parser-buttons {
-  display: flex;
-  gap: 10px;
-
-  margin-bottom: 10px;
-}
-
-.parser-result {
-  min-height: 35px;
-
-  margin-bottom: 10px;
-  padding: 8px 10px;
-
-  border-radius: 6px;
-
-  background-color: white;
-
-  font-family: Consolas, "Courier New", monospace;
-  font-size: 14px;
-  font-weight: bold;
-}
-
 textarea {
   width: 100%;
+
   flex: 1;
 
   min-height: 0;
@@ -137,7 +187,9 @@ textarea {
   background-color: white;
 
   font-family: Consolas, "Courier New", monospace;
+
   font-size: 14px;
+
   line-height: 1.5;
 }
 
@@ -149,14 +201,13 @@ textarea {
   color: #cc0000;
 }
 
-@media (max-width: 900px) {
-  body {
-    overflow: auto;
-  }
+.errores-panel {
+  background-color: #ffecec;
+}
 
+@media (max-width: 1100px) {
   .app {
     grid-template-columns: 1fr;
-    min-height: auto;
   }
 
   .panel {

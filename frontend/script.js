@@ -10,16 +10,27 @@ const btnParser = document.getElementById("btnParser");
 
 const btnSemantico = document.getElementById("btnSemantico");
 
-const btnLimpiar = document.getElementById("btnLimpiar");
-
 const fileInput = document.getElementById("fileInput");
+
+// ==================================
+// COLORES Y LIMPIEZA
+// ==================================
+
+const COLOR_OK = "#1e7d32";
+const COLOR_ERROR = "#cc0000";
+
+function limpiarSalidas() {
+  tokens.value = "";
+  errores.value = "";
+}
 
 // ==================================
 // MOSTRAR RESULTADO
 // ==================================
 
-function mostrarResultado(lista) {
+function mostrarResultado(lista, ok) {
   errores.value = lista.join("\n");
+  errores.style.color = ok ? COLOR_OK : COLOR_ERROR;
 }
 
 // ==================================
@@ -41,6 +52,7 @@ fileInput.addEventListener("change", (event) => {
 
   reader.onerror = function () {
     errores.value = "No se pudo leer el archivo.";
+    errores.style.color = COLOR_ERROR;
   };
 
   reader.readAsText(file, "UTF-8");
@@ -51,8 +63,7 @@ fileInput.addEventListener("change", (event) => {
 // ==================================
 
 btnTokens.addEventListener("click", async function () {
-  tokens.value = "";
-  errores.value = "";
+  limpiarSalidas();
 
   try {
     const response = await fetch("/analizar", {
@@ -70,7 +81,7 @@ btnTokens.addEventListener("click", async function () {
     const data = await response.json();
 
     if (!response.ok) {
-      mostrarResultado(data.errores || ["Error al analizar el código."]);
+      mostrarResultado(data.errores || ["Error al analizar el código."], false);
 
       return;
     }
@@ -78,7 +89,7 @@ btnTokens.addEventListener("click", async function () {
     tokens.value = data.tokens.join("\n");
 
     if (data.errores.length > 0) {
-      mostrarResultado(data.errores);
+      mostrarResultado(data.errores, false);
     } else {
       errores.value = "";
     }
@@ -86,6 +97,7 @@ btnTokens.addEventListener("click", async function () {
     console.error(error);
 
     errores.value = "Error al comunicarse con el scanner.";
+    errores.style.color = COLOR_ERROR;
   }
 });
 
@@ -94,7 +106,7 @@ btnTokens.addEventListener("click", async function () {
 // ==================================
 
 btnParser.addEventListener("click", async function () {
-  errores.value = "";
+  limpiarSalidas();
 
   try {
     const response = await fetch("/parser", {
@@ -111,11 +123,12 @@ btnParser.addEventListener("click", async function () {
 
     const data = await response.json();
 
-    mostrarResultado(data.errores || ["Error al analizar el parser."]);
+    mostrarResultado(data.errores || ["Error al analizar el parser."], data.ok === true);
   } catch (error) {
     console.error(error);
 
     errores.value = "Error al comunicarse con el parser.";
+    errores.style.color = COLOR_ERROR;
   }
 });
 
@@ -124,7 +137,7 @@ btnParser.addEventListener("click", async function () {
 // ==================================
 
 btnSemantico.addEventListener("click", async function () {
-  errores.value = "";
+  limpiarSalidas();
 
   try {
     const response = await fetch("/semantico", {
@@ -141,18 +154,14 @@ btnSemantico.addEventListener("click", async function () {
 
     const data = await response.json();
 
-    mostrarResultado(data.errores || ["Error al analizar semánticamente."]);
+    mostrarResultado(
+      data.errores || ["Error al analizar semánticamente."],
+      data.ok === true,
+    );
   } catch (error) {
     console.error(error);
 
     errores.value = "Error al comunicarse con el analizador semántico.";
+    errores.style.color = COLOR_ERROR;
   }
-});
-
-// ==================================
-// LIMPIAR
-// ==================================
-
-btnLimpiar.addEventListener("click", function () {
-  errores.value = "";
 });

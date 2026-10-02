@@ -1,12 +1,12 @@
 import os
 
 from flask import Flask, jsonify, request, send_from_directory
+from intermedio import generar_codigo_intermedio
 from parser import Parser
 from scanner import analizar_lexico
 from semantico import AnalizadorSemantico
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
 FRONTEND_DIR = os.path.join(BASE_DIR, "frontend")
 
 app = Flask(__name__)
@@ -104,7 +104,7 @@ def analizar_semantico():
 
     codigo = data["codigo"]
 
-    # Primero: scanner
+    # Scanner
     tokens, errores_lexicos = analizar_lexico(codigo)
 
     if errores_lexicos:
@@ -115,7 +115,7 @@ def analizar_semantico():
             }
         )
 
-    # Segundo: parser
+    # Parser
     parser = Parser(tokens)
 
     ok, errores_sintacticos = parser.analizar()
@@ -128,7 +128,7 @@ def analizar_semantico():
             }
         )
 
-    # Tercero: semántico
+    # Semántico
     semantico = AnalizadorSemantico(tokens)
 
     ok, errores = semantico.analizar()
@@ -137,6 +137,74 @@ def analizar_semantico():
         {
             "ok": ok,
             "errores": errores,
+        }
+    )
+
+
+# CÓDIGO INTERMEDIO
+@app.route("/intermedio", methods=["POST"])
+def generar_intermedio():
+    data = request.get_json()
+
+    if not data or "codigo" not in data:
+        return jsonify(
+            {
+                "ok": False,
+                "codigo": "",
+                "errores": ["No se recibió código para analizar."],
+            }
+        ), 400
+
+    codigo = data["codigo"]
+
+    # 1. Scanner
+    tokens, errores_lexicos = analizar_lexico(codigo)
+
+    if errores_lexicos:
+        return jsonify(
+            {
+                "ok": False,
+                "codigo": "",
+                "errores": errores_lexicos,
+            }
+        )
+
+    # 2. Parser
+    parser = Parser(tokens)
+
+    ok, errores_sintacticos = parser.analizar()
+
+    if not ok:
+        return jsonify(
+            {
+                "ok": False,
+                "codigo": "",
+                "errores": errores_sintacticos,
+            }
+        )
+
+    # 3. Semántico
+    semantico = AnalizadorSemantico(tokens)
+
+    ok, errores_semanticos = semantico.analizar()
+
+    if not ok:
+        return jsonify(
+            {
+                "ok": False,
+                "codigo": "",
+                "errores": errores_semanticos,
+            }
+        )
+
+    # 4. Generar CI
+    codigo_intermedio = generar_codigo_intermedio(semantico.tabla)
+
+    return jsonify(
+        {
+            "ok": True,
+            "codigo": codigo_intermedio,
+            "errores": [],
         }
     )
 

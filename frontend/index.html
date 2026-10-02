@@ -2,28 +2,50 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+    />
 
     <title>Pyngo - Compilador</title>
 
-    <link rel="stylesheet" href="style.css" />
+    <link
+      rel="stylesheet"
+      href="style.css"
+    />
   </head>
 
   <body>
+
     <main class="app">
+
       <!-- PROGRAMA -->
       <section class="panel programa-panel">
+
         <div class="panel-header">
+
           <h2>PROGRAMA:</h2>
 
-          <label for="fileInput" class="file-button"> Cargar Archivo </label>
+          <label
+            for="fileInput"
+            class="file-button"
+          >
+            Cargar Archivo
+          </label>
 
-          <input type="file" id="fileInput" accept=".txt,.pyn" hidden />
+          <input
+            type="file"
+            id="fileInput"
+            accept=".txt,.pyn"
+            hidden
+          />
+
         </div>
 
-        <textarea id="codigo" spellcheck="false">
-{
+        <textarea
+          id="codigo"
+          spellcheck="false"
+        >{
     int contador = 1;
     int limite = 10;
     bool activo = true;
@@ -36,13 +58,20 @@
         };
         contador = contador @ 1;
     };
-}</textarea
-        >
+}</textarea>
+
       </section>
+
 
       <!-- TOKENS -->
       <section class="panel tokens-panel">
-        <button id="btnTokens" class="main-button">TOKENS</button>
+
+        <button
+          id="btnTokens"
+          class="main-button"
+        >
+          TOKENS
+        </button>
 
         <textarea
           id="tokens"
@@ -50,14 +79,29 @@
           spellcheck="false"
           placeholder="Los tokens aparecerán aquí..."
         ></textarea>
+
       </section>
 
-      <!-- PARSER + SEMÁNTICO -->
-      <section id="erroresPanel" class="panel errores-panel">
-        <div class="analysis-buttons">
-          <button id="btnParser" class="analysis-button">Parser</button>
 
-          <button id="btnSemantico" class="analysis-button">Semántico</button>
+      <!-- PARSER Y SEMÁNTICO -->
+      <section class="panel errores-panel">
+
+        <div class="analysis-buttons">
+
+          <button
+            id="btnParser"
+            class="analysis-button"
+          >
+            Parser
+          </button>
+
+          <button
+            id="btnSemantico"
+            class="analysis-button"
+          >
+            Semántico
+          </button>
+
         </div>
 
         <textarea
@@ -66,9 +110,32 @@
           spellcheck="false"
           placeholder="Resultado del análisis..."
         ></textarea>
+
       </section>
+
+
+      <!-- CÓDIGO INTERMEDIO -->
+      <section class="panel ci-panel">
+
+        <button
+          id="btnCI"
+          class="main-button"
+        >
+          CI
+        </button>
+
+        <textarea
+          id="codigoIntermedio"
+          readonly
+          spellcheck="false"
+          placeholder="El código intermedio aparecerá aquí..."
+        ></textarea>
+
+      </section>
+
     </main>
 
     <script src="script.js"></script>
+
   </body>
 </html>

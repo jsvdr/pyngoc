@@ -2,8 +2,10 @@
   box-sizing: border-box;
 }
 
+
 body {
   margin: 0;
+
   min-height: 100vh;
 
   font-family: Arial, sans-serif;
@@ -13,9 +15,10 @@ body {
   color: #111;
 }
 
+
 .app {
   width: 100%;
-  min-height: 100vh;
+  height: 100vh;
 
   display: grid;
 
@@ -24,20 +27,22 @@ body {
     1fr
     1fr;
 
+  grid-template-rows:
+    1fr
+    1fr;
+
   gap: 20px;
 
   padding: 20px;
-
-  align-items: start;
 }
+
 
 .panel {
   min-width: 0;
-
-  height: 50vh;
-  min-height: 400px;
+  min-height: 0;
 
   display: flex;
+
   flex-direction: column;
 
   padding: 15px;
@@ -47,16 +52,20 @@ body {
   border-radius: 10px;
 }
 
+
 .panel-header {
   flex-shrink: 0;
 }
+
 
 .panel h2 {
   margin: 0 0 10px;
 
   font-size: 20px;
+
   font-weight: bold;
 }
+
 
 .file-button {
   display: block;
@@ -78,15 +87,31 @@ body {
   font-size: 18px;
 
   cursor: pointer;
-
-  transition: background-color 0.2s;
 }
+
 
 .file-button:hover,
 .main-button:hover,
 .analysis-button:hover {
   background-color: #144d75;
 }
+
+
+.main-button,
+.analysis-button {
+  border: none;
+
+  border-radius: 6px;
+
+  color: white;
+
+  font-size: 18px;
+
+  font-weight: bold;
+
+  cursor: pointer;
+}
+
 
 .main-button {
   width: 100%;
@@ -95,20 +120,11 @@ body {
 
   margin-bottom: 10px;
 
-  border: none;
-  border-radius: 6px;
-
   background-color: #1f6aa5;
-
-  color: white;
-
-  font-size: 18px;
-  font-weight: bold;
-
-  cursor: pointer;
 
   flex-shrink: 0;
 }
+
 
 .analysis-buttons {
   display: flex;
@@ -120,23 +136,15 @@ body {
   flex-shrink: 0;
 }
 
+
 .analysis-button {
   flex: 1;
 
   padding: 12px;
 
-  border: none;
-  border-radius: 6px;
-
   background-color: #1f6aa5;
-
-  color: white;
-
-  font-size: 18px;
-  font-weight: bold;
-
-  cursor: pointer;
 }
+
 
 textarea {
   width: 100%;
@@ -150,37 +158,71 @@ textarea {
   resize: none;
 
   border: none;
+
   outline: none;
 
   border-radius: 6px;
 
   background-color: white;
 
-  font-family: Consolas, "Courier New", monospace;
+  font-family:
+    Consolas,
+    "Courier New",
+    monospace;
 
   font-size: 20px;
 
   line-height: 1.6;
 }
 
+
 #tokens {
   color: #003366;
 }
+
 
 #errores {
   color: #cc0000;
 }
 
+
+#codigoIntermedio {
+  color: #111;
+}
+
+
 .errores-panel {
   background-color: #e0e0e0;
 }
 
+
+.ci-panel {
+  grid-column: 1;
+  grid-row: 2;
+
+  background-color: #e0e0e0;
+}
+
+
 @media (max-width: 1100px) {
+
   .app {
+    height: auto;
+
+    min-height: 100vh;
+
     grid-template-columns: 1fr;
+
+    grid-template-rows: none;
   }
 
-  .panel {
-    height: 50vh;
+
+  .panel,
+  .ci-panel {
+    grid-column: auto;
+    grid-row: auto;
+
+    min-height: 400px;
   }
+
 }

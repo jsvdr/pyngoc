@@ -25,6 +25,9 @@ body {
   grid-template-columns:
     1fr
     1fr
+    1fr
+    1fr
+    1fr
     1fr;
 
   grid-template-rows:
@@ -34,6 +37,13 @@ body {
   gap: 20px;
 
   padding: 20px;
+}
+
+
+.programa-panel,
+.tokens-panel,
+.errores-panel {
+  grid-column: span 2;
 }
 
 
@@ -197,7 +207,7 @@ textarea {
 
 
 .ci-panel {
-  grid-column: 1;
+  grid-column: span 3;
   grid-row: 2;
 
   background-color: #e0e0e0;

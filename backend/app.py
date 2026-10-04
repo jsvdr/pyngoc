@@ -11,6 +11,9 @@ FRONTEND_DIR = os.path.join(BASE_DIR, "frontend")
 
 app = Flask(__name__)
 
+# Límite anti-DoS casero: rechaza POST gigantes con 413.
+app.config["MAX_CONTENT_LENGTH"] = 64 * 1024
+
 
 @app.route("/")
 def index():
@@ -30,7 +33,7 @@ def script():
 # SCANNER
 @app.route("/analizar", methods=["POST"])
 def analizar():
-    data = request.get_json()
+    data = request.get_json(silent=True)
 
     if not data or "codigo" not in data:
         return jsonify(
@@ -55,7 +58,7 @@ def analizar():
 # PARSER
 @app.route("/parser", methods=["POST"])
 def analizar_parser():
-    data = request.get_json()
+    data = request.get_json(silent=True)
 
     if not data or "codigo" not in data:
         return jsonify(
@@ -92,7 +95,7 @@ def analizar_parser():
 # SEMÁNTICO
 @app.route("/semantico", methods=["POST"])
 def analizar_semantico():
-    data = request.get_json()
+    data = request.get_json(silent=True)
 
     if not data or "codigo" not in data:
         return jsonify(
@@ -144,7 +147,7 @@ def analizar_semantico():
 # CÓDIGO INTERMEDIO
 @app.route("/intermedio", methods=["POST"])
 def generar_intermedio():
-    data = request.get_json()
+    data = request.get_json(silent=True)
 
     if not data or "codigo" not in data:
         return jsonify(
@@ -210,4 +213,10 @@ def generar_intermedio():
 
 
 if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=5000, debug=True)
+    # Apagado por defecto: la consola Werkzeug no se expone.
+    # Actívalo solo en desarrollo con FLASK_DEBUG=1.
+    app.run(
+        host="127.0.0.1",
+        port=5000,
+        debug=os.environ.get("FLASK_DEBUG") == "1",
+    )

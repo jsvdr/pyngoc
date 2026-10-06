@@ -1,6 +1,8 @@
 from enum import IntEnum
 
 
+# Tokens: qué es cada pedazo del texto (int, if, @, ...).
+# No revisa nada, solo guarda kind + lexeme + line.
 class TokenKind(IntEnum):
     EOF = 0
 
@@ -36,13 +38,17 @@ class TokenKind(IntEnum):
 
 
 class Token:
-    def __init__(self, kind, lexeme, line):
+    kind: TokenKind
+    lexeme: str
+    line: int
+
+    def __init__(self, kind: TokenKind, lexeme: str, line: int) -> None:
         self.kind = kind
         self.lexeme = lexeme
         self.line = line
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"<TKN {self.kind.name} {self.lexeme}>"
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return str(self)

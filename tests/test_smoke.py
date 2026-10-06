@@ -19,59 +19,63 @@ from scanner import analizar_lexico
 from semantico import AnalizadorSemantico
 
 
-def compilar(codigo):
-    """Corre scanner → parser → semántico y devuelve (ok, errores, tabla)."""
-    tokens, lexicos = analizar_lexico(codigo)
+def compilar_hasta_semantico(
+    texto_fuente: str,
+) -> tuple[bool, list[str], dict[str, str]]:
+    """Corre scanner → parser → semántico y devuelve (es_valido, errores, tabla)."""
+    lista_tokens, lista_errores_lexico = analizar_lexico(texto_fuente)
 
-    assert lexicos == []
+    assert lista_errores_lexico == []
 
-    parser = Parser(tokens)
-    ok, sintacticos = parser.analizar()
+    revisor_sintaxis = Parser(lista_tokens)
+    es_valido, lista_errores_sintaxis = revisor_sintaxis.analizar()
 
-    assert ok, sintacticos
+    assert es_valido, lista_errores_sintaxis
 
-    semantico = AnalizadorSemantico(tokens)
-    ok, semanticos = semantico.analizar()
+    revisor_tipos = AnalizadorSemantico(lista_tokens)
+    es_valido, lista_errores_tipos = revisor_tipos.analizar()
 
-    return ok, semanticos, semantico.tabla
+    return es_valido, lista_errores_tipos, revisor_tipos.tabla
 
 
-def test_programa_valido():
-    ok, errores, tabla = compilar("{ int a = 1; bool b = true; }")
+def test_programa_valido() -> None:
+    es_valido, lista_errores, tabla = compilar_hasta_semantico(
+        "{ int a = 1; bool b = true; }"
+    )
 
-    assert ok
-    assert errores == ["Semantic OK"]
+    assert es_valido
+    assert lista_errores == ["Semantic OK"]
     assert tabla == {"a": "int", "b": "bool"}
 
 
-def test_error_tipos_en_declaracion():
-    ok, errores, _ = compilar("{ int x = true; }")
+def test_error_tipos_en_declaracion() -> None:
+    es_valido, lista_errores, _ = compilar_hasta_semantico("{ int x = true; }")
 
-    assert not ok
-    assert errores == [
+    assert not es_valido
+    assert lista_errores == [
         "Línea 1: ERROR DE TIPOS: La variable 'x' es int, pero se recibió bool."
     ]
 
 
-def test_error_variable_no_declarada():
-    ok, errores, _ = compilar("{ x = 10; }")
+def test_error_variable_no_declarada() -> None:
+    es_valido, lista_errores, _ = compilar_hasta_semantico("{ x = 10; }")
 
-    assert not ok
-    assert errores == [
+    assert not es_valido
+    assert lista_errores == [
         "Línea 1: ERROR DE DECLARACIÓN: La variable 'x' no ha sido declarada."
     ]
 
 
-def test_error_variable_ya_declarada():
-    ok, errores, _ = compilar("{ int x = 1; int x = 2; }")
+def test_error_variable_ya_declarada() -> None:
+    es_valido, lista_errores, _ = compilar_hasta_semantico("{ int x = 1; int x = 2; }")
 
-    assert not ok
-    assert errores == [
+    assert not es_valido
+    assert lista_errores == [
         "Línea 1: ERROR DE DECLARACIÓN: La variable 'x' ya fue declarada."
     ]
 
 
-def test_intermedio_solo_directivas():
-    _, _, tabla = compilar("{ int contador = 1; bool activo = true; }")
+def test_intermedio_solo_directivas() -> None:
+    _, _, tabla = compilar_hasta_semantico("{ int contador = 1; bool activo = true; }")
 
     assert generar_codigo_intermedio(tabla) == ("contador DW ?\nactivo DB ?")

@@ -1,0 +1,9 @@
+{
+  "typeCheckingMode": "strict",
+  "extraPaths": ["backend"],
+  "pythonVersion": "3.12",
+  "executionEnvironments": [
+    { "root": "backend" },
+    { "root": "tests", "extraPaths": ["backend"] }
+  ]
+}

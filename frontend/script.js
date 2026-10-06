@@ -1,12 +1,12 @@
-const codigo = document.getElementById("codigo");
-const tokens = document.getElementById("tokens");
-const errores = document.getElementById("errores");
-const codigoIntermedio = document.getElementById("codigoIntermedio");
+const cajaCodigo = document.getElementById("codigo");
+const cajaTokens = document.getElementById("tokens");
+const cajaErrores = document.getElementById("errores");
+const cajaIntermedio = document.getElementById("codigoIntermedio");
 const btnTokens = document.getElementById("btnTokens");
 const btnParser = document.getElementById("btnParser");
 const btnSemantico = document.getElementById("btnSemantico");
 const btnCI = document.getElementById("btnCI");
-const fileInput = document.getElementById("fileInput");
+const cajaArchivo = document.getElementById("fileInput");
 
 // ==================================
 // COLORES Y LIMPIEZA
@@ -16,34 +16,34 @@ const COLOR_OK = "#1e7d32";
 const COLOR_ERROR = "#cc0000";
 
 function limpiarSalidas() {
-  tokens.value = "";
-  errores.value = "";
-  codigoIntermedio.value = "";
+  cajaTokens.value = "";
+  cajaErrores.value = "";
+  cajaIntermedio.value = "";
 }
 
-function mostrarResultado(lista, ok) {
-  errores.value = lista.join("\n");
-  errores.style.color = ok ? COLOR_OK : COLOR_ERROR;
+function pintarErrores(listaErrores, esValido) {
+  cajaErrores.value = listaErrores.join("\n");
+  cajaErrores.style.color = esValido ? COLOR_OK : COLOR_ERROR;
 }
 
 // ==================================
 // CARGAR ARCHIVO
 // ==================================
 
-fileInput.addEventListener("change", (event) => {
-  const file = event.target.files[0];
-  if (!file) {
+cajaArchivo.addEventListener("change", (evento) => {
+  const archivo = evento.target.files[0];
+  if (!archivo) {
     return;
   }
-  const reader = new FileReader();
-  reader.onload = function (event) {
-    codigo.value = event.target.result;
+  const lector = new FileReader();
+  lector.onload = function (eventoLectura) {
+    cajaCodigo.value = eventoLectura.target.result;
   };
-  reader.onerror = function () {
-    errores.value = "No se pudo leer el archivo.";
-    errores.style.color = COLOR_ERROR;
+  lector.onerror = function () {
+    cajaErrores.value = "No se pudo leer el archivo.";
+    cajaErrores.style.color = COLOR_ERROR;
   };
-  reader.readAsText(file, "UTF-8");
+  lector.readAsText(archivo, "UTF-8");
 });
 
 // ==================================
@@ -53,28 +53,28 @@ fileInput.addEventListener("change", (event) => {
 btnTokens.addEventListener("click", async function () {
   limpiarSalidas();
   try {
-    const response = await fetch("/analizar", {
+    const respuesta = await fetch("/analizar", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        codigo: codigo.value,
+        codigo: cajaCodigo.value,
       }),
     });
-    const data = await response.json();
-    if (!response.ok) {
-      mostrarResultado(data.errores || ["Error al analizar el código."], false);
+    const datos = await respuesta.json();
+    if (!respuesta.ok) {
+      pintarErrores(datos.errores || ["Error al analizar el código."], false);
       return;
     }
-    tokens.value = data.tokens.join("\n");
-    if (data.errores.length > 0) {
-      mostrarResultado(data.errores, false);
+    cajaTokens.value = datos.tokens.join("\n");
+    if (datos.errores.length > 0) {
+      pintarErrores(datos.errores, false);
     }
-  } catch (error) {
-    console.error(error);
-    errores.value = "Error al comunicarse con el scanner.";
-    errores.style.color = COLOR_ERROR;
+  } catch (fallo) {
+    console.error(fallo);
+    cajaErrores.value = "Error al comunicarse con el scanner.";
+    cajaErrores.style.color = COLOR_ERROR;
   }
 });
 
@@ -85,21 +85,21 @@ btnTokens.addEventListener("click", async function () {
 btnParser.addEventListener("click", async function () {
   limpiarSalidas();
   try {
-    const response = await fetch("/parser", {
+    const respuesta = await fetch("/parser", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        codigo: codigo.value,
+        codigo: cajaCodigo.value,
       }),
     });
-    const data = await response.json();
-    mostrarResultado(data.errores || ["Error al analizar el parser."], data.ok === true);
-  } catch (error) {
-    console.error(error);
-    errores.value = "Error al comunicarse con el parser.";
-    errores.style.color = COLOR_ERROR;
+    const datos = await respuesta.json();
+    pintarErrores(datos.errores || ["Error al analizar el parser."], datos.ok === true);
+  } catch (fallo) {
+    console.error(fallo);
+    cajaErrores.value = "Error al comunicarse con el parser.";
+    cajaErrores.style.color = COLOR_ERROR;
   }
 });
 
@@ -110,21 +110,21 @@ btnParser.addEventListener("click", async function () {
 btnSemantico.addEventListener("click", async function () {
   limpiarSalidas();
   try {
-    const response = await fetch("/semantico", {
+    const respuesta = await fetch("/semantico", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        codigo: codigo.value,
+        codigo: cajaCodigo.value,
       }),
     });
-    const data = await response.json();
-    mostrarResultado(data.errores || ["Error al analizar semánticamente."], data.ok === true);
-  } catch (error) {
-    console.error(error);
-    errores.value = "Error al comunicarse con el analizador semántico.";
-    errores.style.color = COLOR_ERROR;
+    const datos = await respuesta.json();
+    pintarErrores(datos.errores || ["Error al analizar semánticamente."], datos.ok === true);
+  } catch (fallo) {
+    console.error(fallo);
+    cajaErrores.value = "Error al comunicarse con el analizador semántico.";
+    cajaErrores.style.color = COLOR_ERROR;
   }
 });
 
@@ -135,24 +135,24 @@ btnSemantico.addEventListener("click", async function () {
 btnCI.addEventListener("click", async function () {
   limpiarSalidas();
   try {
-    const response = await fetch("/intermedio", {
+    const respuesta = await fetch("/intermedio", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        codigo: codigo.value,
+        codigo: cajaCodigo.value,
       }),
     });
-    const data = await response.json();
-    if (!data.ok) {
-      mostrarResultado(data.errores || ["No se pudo generar el código intermedio."], false);
+    const datos = await respuesta.json();
+    if (!datos.ok) {
+      pintarErrores(datos.errores || ["No se pudo generar el código intermedio."], false);
       return;
     }
-    codigoIntermedio.value = data.codigo;
-  } catch (error) {
-    console.error(error);
-    errores.value = "Error al generar el código intermedio.";
-    errores.style.color = COLOR_ERROR;
+    cajaIntermedio.value = datos.codigo;
+  } catch (fallo) {
+    console.error(fallo);
+    cajaErrores.value = "Error al generar el código intermedio.";
+    cajaErrores.style.color = COLOR_ERROR;
   }
 });

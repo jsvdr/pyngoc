@@ -1,6 +1,8 @@
 from tokens import Token, TokenKind
 
-PALABRAS_RESERVADAS = {
+# Scanner: texto_fuente -> (lista_tokens, lista_errores). Nunca frena.
+# Siempre devuelve EOF al final para que el parser sepa dónde acaba.
+PALABRAS_RESERVADAS: dict[str, TokenKind] = {
     "if": TokenKind.IF,
     "else": TokenKind.ELSE,
     "for": TokenKind.FOR,
@@ -12,7 +14,7 @@ PALABRAS_RESERVADAS = {
 }
 
 
-CARACTERES = {
+CARACTERES: dict[str, TokenKind] = {
     "{": TokenKind.LBRACE,
     "}": TokenKind.RBRACE,
     ";": TokenKind.SEMICOLON,
@@ -28,46 +30,46 @@ CARACTERES = {
 }
 
 
-def analizar_lexico(codigo):
-    tokens = []
-    errores = []
+def analizar_lexico(texto_fuente: str) -> tuple[list[Token], list[str]]:
+    tokens: list[Token] = []
+    errores: list[str] = []
 
-    i = 0
-    linea = 1
+    pos = 0
+    numero_linea = 1
 
-    while i < len(codigo):
-        caracter = codigo[i]
+    while pos < len(texto_fuente):
+        caracter = texto_fuente[pos]
 
-        # Espacios
+        # Los espacios no son tokens, se saltan.
         if caracter in " \t\r":
-            i += 1
+            pos += 1
             continue
 
-        # Salto de línea
+        # Solo \n sube la línea, así el error dice la línea real.
         if caracter == "\n":
-            linea += 1
-            i += 1
+            numero_linea += 1
+            pos += 1
             continue
 
         # Identificadores y palabras reservadas
         if caracter.isalpha():
-            inicio = i
+            pos_inicio = pos
 
-            while i < len(codigo) and codigo[i].isalnum():
-                i += 1
+            while pos < len(texto_fuente) and texto_fuente[pos].isalnum():
+                pos += 1
 
-            lexema = codigo[inicio:i]
+            palabra = texto_fuente[pos_inicio:pos]
 
-            tipo = PALABRAS_RESERVADAS.get(
-                lexema,
+            kind = PALABRAS_RESERVADAS.get(
+                palabra,
                 TokenKind.ID,
             )
 
             tokens.append(
                 Token(
-                    tipo,
-                    lexema,
-                    linea,
+                    kind,
+                    palabra,
+                    numero_linea,
                 ),
             )
 
@@ -75,34 +77,38 @@ def analizar_lexico(codigo):
 
         # Números
         if caracter.isdigit():
-            inicio = i
+            pos_inicio = pos
 
-            while i < len(codigo) and codigo[i].isdigit():
-                i += 1
+            while pos < len(texto_fuente) and texto_fuente[pos].isdigit():
+                pos += 1
 
-            lexema = codigo[inicio:i]
+            texto_numero = texto_fuente[pos_inicio:pos]
 
             tokens.append(
                 Token(
                     TokenKind.NUM,
-                    lexema,
-                    linea,
+                    texto_numero,
+                    numero_linea,
                 ),
             )
 
             continue
 
-        # Igual ==
-        if caracter == "=" and i + 1 < len(codigo) and codigo[i + 1] == "=":
+        # "==" son 2 letras: se mira pos+1 o se confunde con "=".
+        if (
+            caracter == "="
+            and pos + 1 < len(texto_fuente)
+            and texto_fuente[pos + 1] == "="
+        ):
             tokens.append(
                 Token(
                     TokenKind.EQ,
                     "==",
-                    linea,
+                    numero_linea,
                 ),
             )
 
-            i += 2
+            pos += 2
             continue
 
         # Caracteres individuales
@@ -111,32 +117,32 @@ def analizar_lexico(codigo):
                 Token(
                     CARACTERES[caracter],
                     caracter,
-                    linea,
+                    numero_linea,
                 ),
             )
 
-            i += 1
+            pos += 1
             continue
 
-        # Caracter inválido
-        errores.append(f"Línea {linea}: Caracter inválido '{caracter}'.")
+        # Lo raro se guarda y se sigue para no frenar todo.
+        errores.append(f"Línea {numero_linea}: Caracter inválido '{caracter}'.")
 
         tokens.append(
             Token(
                 TokenKind.INVALID,
                 caracter,
-                linea,
+                numero_linea,
             ),
         )
 
-        i += 1
+        pos += 1
 
-    # EOF
+    # EOF marca el final, el parser lo exige.
     tokens.append(
         Token(
             TokenKind.EOF,
             "EOF",
-            linea,
+            numero_linea,
         ),
     )
 

@@ -261,10 +261,12 @@ def generar_intermedio() -> Response | tuple[Response, int]:
 
 
 if __name__ == "__main__":
+    # Puerto por entorno para nube/local sin tocar código. Por defecto 5000.
+    PORT: int = int(os.getenv("PORT", "5000"))
     # Apagado por defecto: la consola Werkzeug no se expone.
     # Actívalo solo en desarrollo con FLASK_DEBUG=1.
     app.run(
         host="127.0.0.1",
-        port=5000,
+        port=PORT,
         debug=os.environ.get("FLASK_DEBUG") == "1",
     )

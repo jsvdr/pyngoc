@@ -8,13 +8,23 @@ Código simple a propósito: se lee de arriba a abajo, sin AST.
 ## Cómo correrlo (Python 3.12)
 
 ```bash
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 python backend/app.py
 ```
 
 Abre `http://127.0.0.1:5000`. Desarrollo con recarga: `FLASK_DEBUG=1`.
+Si el puerto está ocupado: `PORT=5001 python backend/app.py`.
 
-## Cómo revisarlo
+## Con Docker (sin instalar Python)
+
+```bash
+docker build -t pyngo .
+docker run -p 5000:5000 pyngo
+```
+
+## Cómo revisarlo (si algo falla, corre esto primero)
 
 ```bash
 pytest tests/ -q

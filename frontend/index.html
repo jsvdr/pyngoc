@@ -1,141 +1,92 @@
 <!doctype html>
 <html lang="es">
-  <head>
-    <meta charset="UTF-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0"
-    />
 
-    <title>Pyngo - Compilador</title>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <link
-      rel="stylesheet"
-      href="style.css"
-    />
-  </head>
+  <title>Pyngo - Compilador</title>
 
-  <body>
+  <link rel="stylesheet" href="style.css" />
+</head>
 
-    <main class="app">
+<body>
 
-      <!-- PROGRAMA -->
-      <section class="panel programa-panel">
+  <main class="app">
 
-        <div class="panel-header">
+    <!-- PROGRAMA -->
+    <section class="panel programa-panel">
 
-          <h2>PROGRAMA:</h2>
+      <div class="panel-header">
 
-          <label
-            for="fileInput"
-            class="file-button"
-          >
-            Cargar Archivo
-          </label>
+        <h2>PROGRAMA:</h2>
 
-          <input
-            type="file"
-            id="fileInput"
-            accept=".txt,.pyn"
-            hidden
-          />
+        <label for="fileInput" class="file-button">
+          Cargar Archivo
+        </label>
 
-        </div>
+        <input type="file" id="fileInput" accept=".txt,.pyn" hidden />
 
-        <textarea
-          id="codigo"
-          spellcheck="false"
-        >{
-    int contador = 1;
-    int limite = 10;
-    bool activo = true;
+      </div>
 
-    for contador < limite {
-        if contador > 5 {
-            print(contador & 2);
-        } else {
-            print(contador);
-        };
-        contador = contador @ 1;
-    };
+      <textarea id="codigo" spellcheck="false">{
+    int a = 1;
+    int b = 2;
+    int c = a @ b;
+    print ( c );
 }</textarea>
 
-      </section>
+    </section>
 
 
-      <!-- TOKENS -->
-      <section class="panel tokens-panel">
+    <!-- TOKENS -->
+    <section class="panel tokens-panel">
 
-        <button
-          id="btnTokens"
-          class="main-button"
-        >
-          TOKENS
+      <button id="btnTokens" class="main-button">
+        TOKENS
+      </button>
+
+      <textarea id="tokens" readonly spellcheck="false" placeholder="Los tokens aparecerán aquí..."></textarea>
+
+    </section>
+
+
+    <!-- PARSER Y SEMÁNTICO -->
+    <section class="panel errores-panel">
+
+      <div class="analysis-buttons">
+
+        <button id="btnParser" class="analysis-button">
+          Parser
         </button>
 
-        <textarea
-          id="tokens"
-          readonly
-          spellcheck="false"
-          placeholder="Los tokens aparecerán aquí..."
-        ></textarea>
-
-      </section>
-
-
-      <!-- PARSER Y SEMÁNTICO -->
-      <section class="panel errores-panel">
-
-        <div class="analysis-buttons">
-
-          <button
-            id="btnParser"
-            class="analysis-button"
-          >
-            Parser
-          </button>
-
-          <button
-            id="btnSemantico"
-            class="analysis-button"
-          >
-            Semántico
-          </button>
-
-        </div>
-
-        <textarea
-          id="errores"
-          readonly
-          spellcheck="false"
-          placeholder="Resultado del análisis..."
-        ></textarea>
-
-      </section>
-
-
-      <!-- CÓDIGO INTERMEDIO -->
-      <section class="panel ci-panel">
-
-        <button
-          id="btnCI"
-          class="main-button"
-        >
-          CI
+        <button id="btnSemantico" class="analysis-button">
+          Semántico
         </button>
 
-        <textarea
-          id="codigoIntermedio"
-          readonly
-          spellcheck="false"
-          placeholder="El código intermedio aparecerá aquí..."
-        ></textarea>
+      </div>
 
-      </section>
+      <textarea id="errores" readonly spellcheck="false" placeholder="Resultado del análisis..."></textarea>
 
-    </main>
+    </section>
 
-    <script src="script.js"></script>
 
-  </body>
+    <!-- CÓDIGO INTERMEDIO -->
+    <section class="panel ci-panel">
+
+      <button id="btnCI" class="main-button">
+        CI
+      </button>
+
+      <textarea id="codigoIntermedio" readonly spellcheck="false"
+        placeholder="El código intermedio aparecerá aquí..."></textarea>
+
+    </section>
+
+  </main>
+
+  <script src="script.js"></script>
+
+</body>
+
 </html>

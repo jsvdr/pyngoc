@@ -40,7 +40,7 @@ pyright
 | TOKENS | `POST /analizar` | lista de tokens |
 | Parser | `POST /parser` | `Syntax OK` |
 | Semántico | `POST /semantico` | `Semantic OK` |
-| CI | `POST /intermedio` | `nombre DW/DB ?` |
+| CI | `POST /intermedio` | tabla Nombre/Operador/Atributo |
 
 ## Ejemplo para probar
 

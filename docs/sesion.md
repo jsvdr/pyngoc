@@ -10,7 +10,8 @@ sin AST, mensajes exactos, gramática intocable sin permiso.
 - ✅ Parser (`parser.py`): solo reconoce, sin nodos ni `arbol.py`.
 - ✅ Semántico (`semantico.py`): copia del parser + `tabla = {}`
   (el HashMap); devuelve `"int"`/`"bool"`, `None` = error previo.
-- ✅ Intermedio (`intermedio.py` + ruta `/intermedio`): tabla → `DW/DB ?`.
+- ✅ Intermedio (`intermedio.py` + ruta `/intermedio`): tabla + tokens →
+  CI en 3 campos (Nombre/Operador/Atributo).
 - ⏳ Optimizador: pendiente (alcance por definir con el profe).
 - ⏳ Código máquina: noviembre (destino por definir).
 
@@ -39,7 +40,7 @@ ruff check backend/ tests/ && ruff format --check backend/ tests/
 { int x = true; }               → ERROR DE TIPOS (es int, recibió bool)
 { x = 10; }                     → ERROR DE DECLARACIÓN (no declarada)
 { int x = 1; int x = 2; }       → ERROR DE DECLARACIÓN (ya declarada)
-CI de { int c = 1; ... }        → contador DW ? / limite DW ? / activo DB ?
+CI de { int c = 1; ... }        → tabla Nombre/Operador/Atributo
 ```
 
 ## Pseudocódigo de 7 líneas (el del examen)

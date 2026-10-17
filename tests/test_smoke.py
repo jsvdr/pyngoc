@@ -75,7 +75,34 @@ def test_error_variable_ya_declarada() -> None:
     ]
 
 
-def test_intermedio_solo_directivas() -> None:
-    _, _, tabla = compilar_hasta_semantico("{ int contador = 1; bool activo = true; }")
+def test_codigo_intermedio_tabla_3_campos() -> None:
+    fuente = "{ int contador = 1; bool activo = true; }"
 
-    assert generar_codigo_intermedio(tabla) == ("contador DW ?\nactivo DB ?")
+    lista_tokens, _ = analizar_lexico(fuente)
+
+    _, _, tabla = compilar_hasta_semantico(fuente)
+
+    filas = generar_codigo_intermedio(tabla, lista_tokens)
+
+    assert filas == [
+        ("", "TITLE", "Pyngo"),
+        ("", ".MODEL", "Small"),
+        ("", ".486", ""),
+        ("", ".STACK", ""),
+        ("", "", ""),
+        ("", ".DATA", ""),
+        ("contador", "DW", "?"),
+        ("activo", "DB", "?"),
+        ("", "", ""),
+        ("", ".CODE", ""),
+        ("MAIN", "PROC", "FAR"),
+        ("", ".STARTUP", ""),
+        ("", "", ""),
+        ("", "MOV", "contador, 1"),
+        ("", "MOV", "activo, 1"),
+        ("", "", ""),
+        ("", ".EXIT", ""),
+        ("MAIN", "ENDP", ""),
+        ("", "", ""),
+        ("", "END", ""),
+    ]

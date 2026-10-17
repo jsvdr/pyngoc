@@ -313,7 +313,10 @@ class Generador:
         self.etiqueta(etiqueta_fin)
 
     # PRINT → print ( EXPRESION )
-    # Rutina del profe: DIV 10 -> COC/RESI, luego imprime COC con AH=02H.
+    # Imprime cualquier entero no negativo 0..65535 con INT 21H / AH=02H.
+    # Extrae los dígitos con divisiones entre 10 (en orden inverso, guardándolos
+    # en la pila) y los imprime en orden correcto, convirtiendo cada uno a ASCII
+    # sumando 48. El caso 0 se trata aparte.
     def print_stmt(self) -> None:
         self.avanzar_si_es(TokenKind.PRINT)
         self.avanzar_si_es(TokenKind.LPAREN)
@@ -322,14 +325,40 @@ class Generador:
 
         self.avanzar_si_es(TokenKind.RPAREN)
 
-        self.emitir("MOV", "DL, 10")
-        self.emitir("DIV", "DL")
-        self.emitir("MOV", "COC, AL")
-        self.emitir("MOV", "RESI, AH")
-        self.emitir("MOV", "BX, 0001H")
-        self.emitir("MOV", "DL, COC")
+        etiqueta_div = self.nueva_etiqueta()
+        etiqueta_imp = self.nueva_etiqueta()
+        etiqueta_fin = self.nueva_etiqueta()
+
+        # Si el valor es 0, imprimir '0' y terminar.
+        self.emitir("CMP", "AX, 0")
+        self.emitir("JNE", etiqueta_div)
+
+        self.emitir("MOV", "DL, 48")
         self.emitir("MOV", "AH, 02H")
         self.emitir("INT", "21H")
+        self.emitir("JMP", etiqueta_fin)
+
+        # Extraer dígitos en orden inverso con divisiones entre 10.
+        self.etiqueta(etiqueta_div)
+        self.emitir("MOV", "CX, 0")
+        self.emitir("MOV", "BX, 10")
+
+        self.emitir("MOV", "DX, 0")
+        self.emitir("DIV", "BX")
+        self.emitir("PUSH", "DX")
+        self.emitir("INC", "CX")
+        self.emitir("CMP", "AX, 0")
+        self.emitir("JNE", etiqueta_div)
+
+        # Imprimir dígitos en orden correcto.
+        self.etiqueta(etiqueta_imp)
+        self.emitir("POP", "DX")
+        self.emitir("ADD", "DL, 48")
+        self.emitir("MOV", "AH, 02H")
+        self.emitir("INT", "21H")
+        self.emitir("LOOP", etiqueta_imp)
+
+        self.etiqueta(etiqueta_fin)
 
     # TIPO_DATO → int | bool
     def tipo_dato(self) -> str | None:
@@ -667,14 +696,6 @@ def generar_codigo_intermedio(
 
         elif tipo_declarado == "bool":
             filas.extend(rellenar(PLANTILLA_DATO_BOOL, nombre=nombre_variable))
-
-    # Variables auxiliares para la rutina de impresión.
-    if tiene_print:
-        if "COC" not in tabla:
-            filas.append(("COC", "DB", "0"))
-
-        if "RESI" not in tabla:
-            filas.append(("RESI", "DB", "0"))
 
     filas.extend(ESQUELETO_CODIGO)
 

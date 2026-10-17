@@ -196,8 +196,68 @@ textarea {
 }
 
 
-#codigoIntermedio {
+.tabla-ci-contenedor {
+  flex: 1;
+
+  min-height: 0;
+
+  overflow: auto;
+
+  padding: 15px;
+
+  border-radius: 6px;
+
+  background-color: white;
+}
+
+
+.tabla-ci {
+  width: 100%;
+
+  table-layout: fixed;
+
+  border-collapse: collapse;
+
+  font-family:
+    Consolas,
+    "Courier New",
+    monospace;
+
+  font-size: 20px;
+
+  line-height: 1.6;
+
   color: #111;
+}
+
+
+/* Las 3 columnas ocupan exactamente un tercio cada una. */
+.tabla-ci th,
+.tabla-ci td {
+  width: 33.33%;
+
+  padding: 2px 8px;
+
+  text-align: left;
+
+  vertical-align: top;
+
+  overflow-wrap: anywhere;
+}
+
+
+.tabla-ci th {
+  color: #111;
+
+  border-bottom: 2px solid #999;
+}
+
+
+/* Fila vacía: solo separa secciones. */
+.tabla-ci tr.separador td {
+  height: 12px;
+
+  padding: 0;
 }
 
 

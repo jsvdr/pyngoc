@@ -1,7 +1,7 @@
 const cajaCodigo = document.getElementById("codigo");
 const cajaTokens = document.getElementById("tokens");
 const cajaErrores = document.getElementById("errores");
-const cajaIntermedio = document.getElementById("codigoIntermedio");
+const cuerpoIntermedio = document.getElementById("cuerpoIntermedio");
 const btnTokens = document.getElementById("btnTokens");
 const btnParser = document.getElementById("btnParser");
 const btnSemantico = document.getElementById("btnSemantico");
@@ -18,7 +18,7 @@ const COLOR_ERROR = "#cc0000";
 function limpiarSalidas() {
   cajaTokens.value = "";
   cajaErrores.value = "";
-  cajaIntermedio.value = "";
+  cuerpoIntermedio.innerHTML = "";
 }
 
 function pintarErrores(listaErrores, esValido) {
@@ -132,6 +132,38 @@ btnSemantico.addEventListener("click", async function () {
 // CÓDIGO INTERMEDIO
 // ==================================
 
+// Pinta las filas (Nombre, Operador, Atributo) en la tabla.
+function pintarIntermedio(filas, mensaje) {
+  cuerpoIntermedio.innerHTML = "";
+
+  if (mensaje) {
+    const fila = document.createElement("tr");
+    const celda = document.createElement("td");
+    celda.colSpan = 3;
+    celda.textContent = mensaje;
+    fila.appendChild(celda);
+    cuerpoIntermedio.appendChild(fila);
+    return;
+  }
+
+  for (const [nombre, operador, atributo] of filas) {
+    const fila = document.createElement("tr");
+
+    // Fila vacía = separador entre secciones.
+    if (nombre === "" && operador === "" && atributo === "") {
+      fila.className = "separador";
+    }
+
+    for (const campo of [nombre, operador, atributo]) {
+      const celda = document.createElement("td");
+      celda.textContent = campo;
+      fila.appendChild(celda);
+    }
+
+    cuerpoIntermedio.appendChild(fila);
+  }
+}
+
 btnCI.addEventListener("click", async function () {
   limpiarSalidas();
   try {
@@ -149,7 +181,7 @@ btnCI.addEventListener("click", async function () {
       pintarErrores(datos.errores || ["No se pudo generar el código intermedio."], false);
       return;
     }
-    cajaIntermedio.value = datos.codigo;
+    pintarIntermedio(datos.filas, datos.mensaje);
   } catch (fallo) {
     console.error(fallo);
     cajaErrores.value = "Error al generar el código intermedio.";

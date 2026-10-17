@@ -190,7 +190,8 @@ def generar_intermedio() -> Response | tuple[Response, int]:
         return jsonify(
             {
                 "ok": False,
-                "codigo": "",
+                "filas": [],
+                "mensaje": "",
                 "errores": ["No se recibió código para analizar."],
             }
         ), 400
@@ -201,7 +202,8 @@ def generar_intermedio() -> Response | tuple[Response, int]:
         return jsonify(
             {
                 "ok": False,
-                "codigo": "",
+                "filas": [],
+                "mensaje": "",
                 "errores": ["No se recibió código para analizar."],
             }
         ), 400
@@ -215,7 +217,8 @@ def generar_intermedio() -> Response | tuple[Response, int]:
         return jsonify(
             {
                 "ok": False,
-                "codigo": "",
+                "filas": [],
+                "mensaje": "",
                 "errores": lista_errores_lexico,
             }
         )
@@ -229,7 +232,8 @@ def generar_intermedio() -> Response | tuple[Response, int]:
         return jsonify(
             {
                 "ok": False,
-                "codigo": "",
+                "filas": [],
+                "mensaje": "",
                 "errores": lista_errores_sintaxis,
             }
         )
@@ -243,18 +247,24 @@ def generar_intermedio() -> Response | tuple[Response, int]:
         return jsonify(
             {
                 "ok": False,
-                "codigo": "",
+                "filas": [],
+                "mensaje": "",
                 "errores": lista_errores_tipos,
             }
         )
 
     # 4. Generar CI
-    codigo_intermedio = generar_codigo_intermedio(revisor_tipos.tabla)
+    filas = generar_codigo_intermedio(revisor_tipos.tabla, lista_tokens)
+
+    mensaje = ""
+    if len(filas) == 0:
+        mensaje = "No hay variables para generar."
 
     return jsonify(
         {
             "ok": True,
-            "codigo": codigo_intermedio,
+            "filas": filas,
+            "mensaje": mensaje,
             "errores": [],
         }
     )

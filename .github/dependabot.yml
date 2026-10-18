@@ -1,0 +1,14 @@
+# Avisa de dependencias desactualizadas o con CVEs abriendo un PR.
+# Este archivo NO vive en workflows/, asi que se pushea normal.
+version: 2
+
+updates:
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"

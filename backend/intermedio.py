@@ -155,16 +155,11 @@ class Generador:
         else:
             self.emitir(f"MOV {nombre_variable}, AX")
 
-    # IF → if EXPRESION { LISTA_DECL } [ else { LISTA_DECL } ]
-    # Si la condición es una comparación simple (a < b), se emite CMP + salto
-    # directo, como en la plantilla del profe. Si no, se evalúa a AX y se salta
-    # si es cero.
-    def if_stmt(self) -> None:
-        etiqueta_else = self.nueva_etiqueta()
-
-        self.avanzar_si_es(TokenKind.IF)
-        self.avanzar_si_es(TokenKind.LPAREN)
-
+    # Deja la condición evaluada en AX/flags y SALTA si resulta falsa.
+    # Si es una comparación simple (a < b) se emite CMP + salto directo, como en
+    # la plantilla del profe; si no, se evalúa a AX y se salta si queda en cero.
+    # El if salta a su etiqueta else y el while a la etiqueta de fin.
+    def condicion_falsa(self, etiqueta_falsa: str) -> None:
         if self.es_comparacion():
             izquierda = self.operando()
 
@@ -181,17 +176,26 @@ class Generador:
             self.emitir(f"CMP AX, {derecha}")
 
             if operador == TokenKind.LESS:
-                self.emitir(f"JGE {etiqueta_else}")
+                self.emitir(f"JGE {etiqueta_falsa}")
             elif operador == TokenKind.GREATER:
-                self.emitir(f"JLE {etiqueta_else}")
+                self.emitir(f"JLE {etiqueta_falsa}")
             else:
-                self.emitir(f"JNE {etiqueta_else}")
+                self.emitir(f"JNE {etiqueta_falsa}")
 
         else:
             self.expresion()
 
             self.emitir("CMP AX, 0")
-            self.emitir(f"JE {etiqueta_else}")
+            self.emitir(f"JE {etiqueta_falsa}")
+
+    # IF → if EXPRESION { LISTA_DECL } [ else { LISTA_DECL } ]
+    def if_stmt(self) -> None:
+        etiqueta_else = self.nueva_etiqueta()
+
+        self.avanzar_si_es(TokenKind.IF)
+        self.avanzar_si_es(TokenKind.LPAREN)
+
+        self.condicion_falsa(etiqueta_else)
 
         self.avanzar_si_es(TokenKind.RPAREN)
         self.avanzar_si_es(TokenKind.LBRACE)
@@ -230,33 +234,7 @@ class Generador:
         self.avanzar_si_es(TokenKind.WHILE)
         self.avanzar_si_es(TokenKind.LPAREN)
 
-        if self.es_comparacion():
-            izquierda = self.operando()
-
-            self.emitir(f"MOV AX, {izquierda}")
-
-            operador = self.token_actual().kind
-
-            self.avanzar()
-
-            derecha = self.operando()
-
-            self.exigir_simple("la comparación", PROHIBIDO_TRAS_COMPARACION)
-
-            self.emitir(f"CMP AX, {derecha}")
-
-            if operador == TokenKind.LESS:
-                self.emitir(f"JGE {etiqueta_fin}")
-            elif operador == TokenKind.GREATER:
-                self.emitir(f"JLE {etiqueta_fin}")
-            else:
-                self.emitir(f"JNE {etiqueta_fin}")
-
-        else:
-            self.expresion()
-
-            self.emitir("CMP AX, 0")
-            self.emitir(f"JE {etiqueta_fin}")
+        self.condicion_falsa(etiqueta_fin)
 
         self.avanzar_si_es(TokenKind.RPAREN)
         self.avanzar_si_es(TokenKind.LBRACE)

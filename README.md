@@ -5,6 +5,20 @@ para un lenguaje propio con `int`/`bool`, `if`/`while`/`print` y operadores
 `@ # & | == > <`. Backend en Flask, frontend vanilla, sin dependencias de más.
 Código simple a propósito: se lee de arriba a abajo, sin AST.
 
+La gramática del lenguaje está en [`docs/gramatica.md`](docs/gramatica.md)
+y el catálogo de errores en [`docs/errores.md`](docs/errores.md).
+
+## Estado
+
+| Fase | Estado |
+|---|---|
+| Scanner | ✅ |
+| Parser (sin AST) | ✅ |
+| Semántico | ✅ |
+| Código intermedio (TASM) | ✅ |
+| Optimizador | ⏳ por definir |
+| Código máquina | ⏳ por definir |
+
 ## Cómo correrlo (Python 3.12)
 
 ```bash
@@ -78,4 +92,5 @@ muestra un error claro en vez de generar código.
 backend/   tokens.py scanner.py parser.py semantico.py intermedio.py app.py
 frontend/  index.html script.js style.css
 tests/     test_smoke.py (casos de humo)
+docs/      gramatica.md errores.md
 ```

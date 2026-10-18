@@ -6,6 +6,8 @@ Se corre con:  pytest tests/ -q
 import os
 import sys
 
+import pytest
+
 # Los tests importan el backend por ruta explícita a propósito:
 # así no hay que convertir backend/ en paquete ni tocar app.py.
 sys.path.insert(
@@ -13,7 +15,7 @@ sys.path.insert(
     os.path.join(os.path.dirname(__file__), "..", "backend"),
 )
 
-from intermedio import generar_codigo_intermedio
+from intermedio import ErrorIntermedio, generar_codigo_intermedio
 from parser import Parser
 from scanner import analizar_lexico
 from semantico import AnalizadorSemantico
@@ -253,3 +255,54 @@ def test_intermedio_if_con_etiquetas() -> None:
     idx_else = filas.index(("ETQ1:", "", ""))
     idx_fin = filas.index(("ETQ2:", "", ""))
     assert idx_cmp < idx_salto < idx_verdad < idx_else < idx_fin
+
+
+def test_intermedio_cadena_suma_y_resta() -> None:
+    filas = _filas("{ int a = 1; int b = 2; int c = 3; int d = a @ b # c; }")
+
+    # @ y # tienen el mismo nivel: se encadenan de izquierda a derecha.
+    idx_carga = filas.index(("", "MOV", "AX, a"))
+    idx_suma = filas.index(("", "ADD", "AX, b"))
+    idx_resta = filas.index(("", "SUB", "AX, c"))
+    assert idx_carga < idx_suma < idx_resta
+    assert ("", "MOV", "d, AX") in filas
+
+
+def test_intermedio_cadena_producto() -> None:
+    filas = _filas("{ int a = 1; int b = 2; int c = 3; int d = a & b & c; }")
+
+    assert filas.count(("", "MUL", "BX")) == 2
+    assert ("", "MOV", "d, AX") in filas
+
+
+def test_intermedio_rechaza_expresion_anidada() -> None:
+    fuente = "{ int a = 1; int b = 2; int c = 3; int d = a @ b & c; }"
+
+    lista_tokens, _ = analizar_lexico(fuente)
+
+    _, _, tabla = compilar_hasta_semantico(fuente)
+
+    with pytest.raises(ErrorIntermedio):
+        generar_codigo_intermedio(tabla, lista_tokens)
+
+
+def test_intermedio_rechaza_parentesis() -> None:
+    fuente = "{ int a = 1; int b = 2; int c = ( a @ b ); }"
+
+    lista_tokens, _ = analizar_lexico(fuente)
+
+    _, _, tabla = compilar_hasta_semantico(fuente)
+
+    with pytest.raises(ErrorIntermedio):
+        generar_codigo_intermedio(tabla, lista_tokens)
+
+
+def test_intermedio_rechaza_comparacion_compuesta() -> None:
+    fuente = "{ int a = 1; int b = 2; int c = 3; if (a < b @ c) { a = 1; }; }"
+
+    lista_tokens, _ = analizar_lexico(fuente)
+
+    _, _, tabla = compilar_hasta_semantico(fuente)
+
+    with pytest.raises(ErrorIntermedio):
+        generar_codigo_intermedio(tabla, lista_tokens)

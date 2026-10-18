@@ -257,10 +257,10 @@ def test_intermedio_if_con_etiquetas() -> None:
     assert idx_cmp < idx_salto < idx_verdad < idx_else < idx_fin
 
 
-def test_intermedio_for_con_etiquetas() -> None:
-    filas = _filas("{ int i = 0; for (i < 3) { i = i @ 1; }; }")
+def test_intermedio_while_con_etiquetas() -> None:
+    filas = _filas("{ int i = 0; while (i < 3) { i = i @ 1; }; }")
 
-    # El for es un while: etiqueta al inicio, comparación y salto si es falso.
+    # El while prueba la condición al inicio y repite mientras sea cierta.
     assert ("ETQ1:", "", "") in filas
     assert ("", "CMP", "AX, 3") in filas
     assert ("", "JGE", "ETQ2") in filas
@@ -278,14 +278,14 @@ def test_intermedio_for_con_etiquetas() -> None:
     assert idx_inicio < idx_cmp < idx_salto < idx_vuelta < idx_fin
 
 
-def test_error_tipo_en_for() -> None:
+def test_error_tipo_en_while() -> None:
     es_valido, lista_errores, _ = compilar_hasta_semantico(
-        "{ int a = 1; for (a) { a = 1; }; }"
+        "{ int a = 1; while (a) { a = 1; }; }"
     )
 
     assert not es_valido
     assert lista_errores == [
-        "Línea 1: ERROR DE TIPOS: La condición del for debe ser bool."
+        "Línea 1: ERROR DE TIPOS: La condición del while debe ser bool."
     ]
 
 

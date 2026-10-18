@@ -5,7 +5,7 @@ from tokens import Token, TokenKind
 PALABRAS_RESERVADAS: dict[str, TokenKind] = {
     "if": TokenKind.IF,
     "else": TokenKind.ELSE,
-    "for": TokenKind.FOR,
+    "while": TokenKind.WHILE,
     "print": TokenKind.PRINT,
     "int": TokenKind.INT,
     "bool": TokenKind.BOOL,

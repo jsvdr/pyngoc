@@ -8,7 +8,7 @@ class TokenKind(IntEnum):
 
     IF = 1
     ELSE = 2
-    FOR = 3
+    WHILE = 3
     PRINT = 4
     INT = 5
     BOOL = 6

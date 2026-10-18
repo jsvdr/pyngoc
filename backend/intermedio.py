@@ -100,7 +100,7 @@ class Generador:
 
             self.avanzar_si_es(TokenKind.SEMICOLON)
 
-    # DECL → DECL_VAR | ASIGNACION | IF | FOR | PRINT
+    # DECL → DECL_VAR | ASIGNACION | IF | WHILE | PRINT
     def decl(self) -> None:
         if self.token_actual_es(TokenKind.INT) or self.token_actual_es(TokenKind.BOOL):
             self.decl_var()
@@ -114,8 +114,8 @@ class Generador:
             self.if_stmt()
             return
 
-        if self.token_actual_es(TokenKind.FOR):
-            self.for_stmt()
+        if self.token_actual_es(TokenKind.WHILE):
+            self.while_stmt()
             return
 
         if self.token_actual_es(TokenKind.PRINT):
@@ -219,15 +219,15 @@ class Generador:
         else:
             self.etiqueta(etiqueta_else)
 
-    # FOR → for EXPRESION { LISTA_DECL }
-    # La gramática no trae inicio ni paso, así que es un while.
-    def for_stmt(self) -> None:
+    # WHILE → while EXPRESION { LISTA_DECL }
+    # Prueba la condición antes de cada vuelta: si sigue siendo cierta, repite.
+    def while_stmt(self) -> None:
         etiqueta_inicio = self.nueva_etiqueta()
         etiqueta_fin = self.nueva_etiqueta()
 
         self.etiqueta(etiqueta_inicio)
 
-        self.avanzar_si_es(TokenKind.FOR)
+        self.avanzar_si_es(TokenKind.WHILE)
         self.avanzar_si_es(TokenKind.LPAREN)
 
         if self.es_comparacion():

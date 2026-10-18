@@ -42,6 +42,22 @@ pyright
 | Semántico | `POST /semantico` | `Semantic OK` |
 | CI | `POST /intermedio` | tabla Nombre/Operador/Atributo |
 
+## Código intermedio (CI)
+
+El CI se pinta como tabla **Nombre / Operador / Atributo**. El generador arma
+líneas TASM (`MOV AX, a`) y al final las parte en esas 3 columnas.
+
+Versión sencilla: cada expresión se calcula en `AX` y solo se admiten
+**operandos simples** (variable, número o `true`/`false`), pero se pueden
+encadenar operaciones del mismo nivel:
+
+- `a @ b @ c` → `ADD AX, b` / `ADD AX, c`
+- `a & b | c` → `MUL BX` / `DIV BX`
+- `print(x)` cubre enteros de 0 a 65535 con `INT 21H` / `AH=02H`
+
+Si haría falta la pila (por ejemplo `a @ b & c` o `( a @ b )`), el botón CI
+muestra un error claro en vez de generar código.
+
 ## Ejemplo para probar
 
 ```text
@@ -57,5 +73,5 @@ pyright
 ```text
 backend/   tokens.py scanner.py parser.py semantico.py intermedio.py app.py
 frontend/  index.html script.js style.css
-tests/     test_smoke.py (5 casos)
+tests/     test_smoke.py (casos de humo)
 ```

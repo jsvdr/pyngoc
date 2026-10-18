@@ -1,4 +1,4 @@
-"""Humo del compilador: 5 casos que siempre deben pasar.
+"""Humo del compilador: casos que siempre deben pasar.
 
 Se corre con:  pytest tests/ -q
 """

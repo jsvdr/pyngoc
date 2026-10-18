@@ -27,6 +27,7 @@ docker run -p 5000:5000 pyngo
 ## Cómo revisarlo (si algo falla, corre esto primero)
 
 ```bash
+pip install -r requirements-dev.txt
 pytest tests/ -q
 ruff check backend/ tests/
 ruff format --check backend/ tests/

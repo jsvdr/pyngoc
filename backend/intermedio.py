@@ -17,40 +17,11 @@ class ErrorIntermedio(Exception):
 
 # Palabras que van en la columna Operador (nunca son un nombre).
 INSTRUCCIONES = frozenset(
-    {
-        "TITLE",
-        ".MODEL",
-        ".486",
-        ".STACK",
-        ".DATA",
-        ".CODE",
-        ".STARTUP",
-        ".EXIT",
-        "DW",
-        "DB",
-        "PROC",
-        "ENDP",
-        "END",
-        "MOV",
-        "ADD",
-        "SUB",
-        "MUL",
-        "DIV",
-        "CMP",
-        "SETE",
-        "SETA",
-        "SETB",
-        "PUSH",
-        "POP",
-        "INC",
-        "LOOP",
-        "INT",
-        "JMP",
-        "JE",
-        "JNE",
-        "JGE",
-        "JLE",
-    }
+    "TITLE .MODEL .486 .STACK .DATA .CODE .STARTUP .EXIT "
+    "DW DB PROC ENDP END "
+    "MOV ADD SUB MUL DIV CMP SETE SETA SETB "
+    "PUSH POP INC LOOP INT "
+    "JMP JE JNE JGE JLE".split()
 )
 
 # --- Esqueleto del programa ---

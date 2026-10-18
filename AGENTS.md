@@ -36,8 +36,8 @@ sobre DRY y sobre ceremonia.
 
 ## Guardarraíles
 
-- `.github/workflows/` no se puede subir por push (token sin alcance
-  `workflow`): esos cambios van por la web de GitHub + `git pull` después.
+- `.github/workflows/` sí se puede pushear: el token tiene alcance `workflow`.
+  Si algún día falla por eso, ese cambio va por la web de GitHub + `git pull`.
 - No agregar dependencias, frameworks, type hints globales, docstrings
   obligatorias ni empaquetado `src/` sin pedirlo antes.
 - Commits en español, estilo `feat:`/`fix:`/`ci:`.

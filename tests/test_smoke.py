@@ -257,6 +257,38 @@ def test_intermedio_if_con_etiquetas() -> None:
     assert idx_cmp < idx_salto < idx_verdad < idx_else < idx_fin
 
 
+def test_intermedio_for_con_etiquetas() -> None:
+    filas = _filas("{ int i = 0; for (i < 3) { i = i @ 1; }; }")
+
+    # El for es un while: etiqueta al inicio, comparación y salto si es falso.
+    assert ("ETQ1:", "", "") in filas
+    assert ("", "CMP", "AX, 3") in filas
+    assert ("", "JGE", "ETQ2") in filas
+
+    # Cuerpo y salto de vuelta al inicio.
+    assert ("", "ADD", "AX, 1") in filas
+    assert ("", "JMP", "ETQ1") in filas
+    assert ("ETQ2:", "", "") in filas
+
+    idx_inicio = filas.index(("ETQ1:", "", ""))
+    idx_cmp = filas.index(("", "CMP", "AX, 3"))
+    idx_salto = filas.index(("", "JGE", "ETQ2"))
+    idx_vuelta = filas.index(("", "JMP", "ETQ1"))
+    idx_fin = filas.index(("ETQ2:", "", ""))
+    assert idx_inicio < idx_cmp < idx_salto < idx_vuelta < idx_fin
+
+
+def test_error_tipo_en_for() -> None:
+    es_valido, lista_errores, _ = compilar_hasta_semantico(
+        "{ int a = 1; for (a) { a = 1; }; }"
+    )
+
+    assert not es_valido
+    assert lista_errores == [
+        "Línea 1: ERROR DE TIPOS: La condición del for debe ser bool."
+    ]
+
+
 def test_intermedio_cadena_suma_y_resta() -> None:
     filas = _filas("{ int a = 1; int b = 2; int c = 3; int d = a @ b # c; }")
 

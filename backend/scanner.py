@@ -2,6 +2,13 @@ from tokens import Token, TokenKind
 
 # Scanner: texto_fuente -> (lista_tokens, lista_errores). Nunca frena.
 # Siempre devuelve EOF al final para que el parser sepa dónde acaba.
+
+# Un identificador es minúscula seguida de minúsculas o dígitos, solo ASCII.
+# A propósito NO se usa str.isalpha()/str.isalnum(): esas funciones de Python
+# aceptan 'ñ', 'á' o '²', y esos nombres romperían el ensamblador.
+LETRAS = "abcdefghijklmnopqrstuvwxyz"
+DIGITOS = "0123456789"
+
 PALABRAS_RESERVADAS: dict[str, TokenKind] = {
     "if": TokenKind.IF,
     "else": TokenKind.ELSE,
@@ -52,10 +59,12 @@ def analizar_lexico(texto_fuente: str) -> tuple[list[Token], list[str]]:
             continue
 
         # Identificadores y palabras reservadas
-        if caracter.isalpha():
+        if caracter in LETRAS:
             pos_inicio = pos
 
-            while pos < len(texto_fuente) and texto_fuente[pos].isalnum():
+            while pos < len(texto_fuente) and (
+                texto_fuente[pos] in LETRAS or texto_fuente[pos] in DIGITOS
+            ):
                 pos += 1
 
             palabra = texto_fuente[pos_inicio:pos]
@@ -76,10 +85,10 @@ def analizar_lexico(texto_fuente: str) -> tuple[list[Token], list[str]]:
             continue
 
         # Números
-        if caracter.isdigit():
+        if caracter in DIGITOS:
             pos_inicio = pos
 
-            while pos < len(texto_fuente) and texto_fuente[pos].isdigit():
+            while pos < len(texto_fuente) and texto_fuente[pos] in DIGITOS:
                 pos += 1
 
             texto_numero = texto_fuente[pos_inicio:pos]

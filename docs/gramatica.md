@@ -24,6 +24,7 @@ TERMINO     → FACTOR [ ( & | | ) FACTOR ]*
 FACTOR      → ID | NUM | BOOL | ( EXPRESION )
 
 BOOL        → true | false
+ID          → [a-z] [a-z0-9]*   (solo ASCII: sin mayúsculas ni 'ñ')
 ```
 
 ## Reglas semánticas (no están en la gramática, las definimos nosotros)

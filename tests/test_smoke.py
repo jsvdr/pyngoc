@@ -338,3 +338,22 @@ def test_intermedio_rechaza_comparacion_compuesta() -> None:
 
     with pytest.raises(ErrorIntermedio):
         generar_codigo_intermedio(tabla, lista_tokens)
+
+
+def test_scanner_rechaza_identificadores_no_ascii() -> None:
+    for fuente, esperado in (
+        ("{ int A = 1; }", "Línea 1: Caracter inválido 'A'."),
+        ("{ int ñ = 1; }", "Línea 1: Caracter inválido 'ñ'."),
+        ("{ int añ = 1; }", "Línea 1: Caracter inválido 'ñ'."),
+        ("{ int a² = 1; }", "Línea 1: Caracter inválido '²'."),
+    ):
+        _, lista_errores = analizar_lexico(fuente)
+
+        assert lista_errores == [esperado], fuente
+
+
+def test_scanner_acepta_minusculas_y_digitos() -> None:
+    lista_tokens, lista_errores = analizar_lexico("{ int contador1 = 1; }")
+
+    assert lista_errores == []
+    assert any(token.lexeme == "contador1" for token in lista_tokens)

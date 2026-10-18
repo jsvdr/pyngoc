@@ -55,7 +55,7 @@ encadenar operaciones del mismo nivel:
 - `a & b | c` → `MUL BX` / `DIV BX`
 - `print(x)` cubre enteros de 0 a 65535 con `INT 21H` / `AH=02H`
 
-Si haría falta la pila (por ejemplo `a @ b & c` o `( a @ b )`), el botón CI
+Si hiciera falta la pila (por ejemplo `a @ b & c` o `( a @ b )`), el botón CI
 muestra un error claro en vez de generar código.
 
 ## Ejemplo para probar

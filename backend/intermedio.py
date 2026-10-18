@@ -7,7 +7,8 @@
 #
 # Versión sencilla: cada expresión se calcula en AX y solo se admiten operandos
 # simples (variable, número o true/false). Se pueden encadenar operaciones del
-# mismo nivel (@ # o & |). Si hiciera falta la pila, se lanza ErrorIntermedio.
+# mismo nivel (@ # o & |). Si una expresión necesitara la pila, se lanza
+# ErrorIntermedio.
 from tokens import Token, TokenKind
 
 

@@ -202,3 +202,50 @@ def test_print_codigo_12345() -> None:
         i for i, f in enumerate(filas) if f == ("", "INT", "21H") and i > idx_pop
     ][0]
     assert idx_pop < idx_add < idx_int
+
+
+def _filas(fuente: str) -> list[tuple[str, str, str]]:
+    lista_tokens, _ = analizar_lexico(fuente)
+
+    _, _, tabla = compilar_hasta_semantico(fuente)
+
+    return generar_codigo_intermedio(tabla, lista_tokens)
+
+
+def test_intermedio_cuatro_operadores() -> None:
+    filas = _filas(
+        "{ int a = 1; int b = 2; int c = a @ b; int d = a # b; "
+        "int e = a & b; int f = a | b; }"
+    )
+
+    # @ -> ADD, # -> SUB.
+    assert ("", "ADD", "AX, b") in filas
+    assert ("", "SUB", "AX, b") in filas
+    # & -> MUL, | -> DIV (con DX limpio).
+    assert ("", "MUL", "b") in filas
+    assert ("", "MOV", "DX, 0") in filas
+    assert ("", "DIV", "b") in filas
+
+
+def test_intermedio_if_con_etiquetas() -> None:
+    filas = _filas(
+        "{ int a = 1; int b = 2; int m = 0; if (a < b) { m = b; } else { m = a; }; }"
+    )
+
+    # Condición: MOV AX, a / CMP AX, b / salto si falso (a < b -> JGE).
+    assert ("", "MOV", "AX, a") in filas
+    assert ("", "CMP", "AX, b") in filas
+    assert ("", "JGE", "ETQ1") in filas
+
+    # Rama verdadera, salto al fin, etiqueta else, rama falsa, etiqueta fin.
+    assert ("", "MOV", "m, b") in filas
+    assert ("", "JMP", "ETQ2") in filas
+    assert ("ETQ1:", "", "") in filas
+    assert ("", "MOV", "m, a") in filas
+    assert ("ETQ2:", "", "") in filas
+
+    # El salto condicional va antes de la rama verdadera.
+    idx_cmp = filas.index(("", "CMP", "AX, b"))
+    idx_salto = filas.index(("", "JGE", "ETQ1"))
+    idx_verdad = filas.index(("", "MOV", "m, b"))
+    assert idx_cmp < idx_salto < idx_verdad

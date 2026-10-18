@@ -42,7 +42,7 @@ class Parser:
 
             self.consumir(TokenKind.SEMICOLON, "Se esperaba ';'.")
 
-    # DECL → DECL_VAR | ASIGNACION | IF | PRINT
+    # DECL → DECL_VAR | ASIGNACION | IF | FOR | PRINT
     def decl(self) -> None:
         if self.token_actual_es(TokenKind.INT) or self.token_actual_es(TokenKind.BOOL):
             self.decl_var()
@@ -54,6 +54,10 @@ class Parser:
 
         if self.token_actual_es(TokenKind.IF):
             self.if_stmt()
+            return
+
+        if self.token_actual_es(TokenKind.FOR):
+            self.for_stmt()
             return
 
         if self.token_actual_es(TokenKind.PRINT):
@@ -103,6 +107,18 @@ class Parser:
             self.lista_decl()
 
             self.consumir(TokenKind.RBRACE, "Se esperaba '}'.")
+
+    # FOR → for EXPRESION { LISTA_DECL }
+    def for_stmt(self) -> None:
+        self.consumir(TokenKind.FOR, "Se esperaba 'for'.")
+
+        self.expresion()
+
+        self.consumir(TokenKind.LBRACE, "Se esperaba '{'.")
+
+        self.lista_decl()
+
+        self.consumir(TokenKind.RBRACE, "Se esperaba '}'.")
 
     # PRINT → print ( EXPRESION )
     def print_stmt(self) -> None:

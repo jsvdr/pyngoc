@@ -41,7 +41,7 @@ class AnalizadorSemantico:
 
             self.avanzar_si_es(TokenKind.SEMICOLON)
 
-    # DECL → DECL_VAR | ASIGNACION | IF | PRINT
+    # DECL → DECL_VAR | ASIGNACION | IF | FOR | PRINT
     def decl(self) -> None:
         if self.token_actual_es(TokenKind.INT) or self.token_actual_es(TokenKind.BOOL):
             self.decl_var()
@@ -53,6 +53,10 @@ class AnalizadorSemantico:
 
         if self.token_actual_es(TokenKind.IF):
             self.if_stmt()
+            return
+
+        if self.token_actual_es(TokenKind.FOR):
+            self.for_stmt()
             return
 
         if self.token_actual_es(TokenKind.PRINT):
@@ -155,6 +159,23 @@ class AnalizadorSemantico:
             self.lista_decl()
 
             self.avanzar_si_es(TokenKind.RBRACE)
+
+    # FOR → for EXPRESION { LISTA_DECL }
+    def for_stmt(self) -> None:
+        numero_linea = self.token_actual().line
+
+        self.avanzar_si_es(TokenKind.FOR)
+
+        tipo_de_la_condicion = self.expresion()
+
+        if tipo_de_la_condicion is not None and tipo_de_la_condicion != "bool":
+            self.error_tipo(numero_linea, "La condición del for debe ser bool.")
+
+        self.avanzar_si_es(TokenKind.LBRACE)
+
+        self.lista_decl()
+
+        self.avanzar_si_es(TokenKind.RBRACE)
 
     # PRINT → print ( EXPRESION )
     def print_stmt(self) -> None:

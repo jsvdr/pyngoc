@@ -53,6 +53,6 @@ guardar en tabla (siempre, aun con error de tipos)
 
 ## Git
 
-`main` en `github.com/jsvdr/pyngoc` (privado hasta nov).
-`.github/workflows/` no se sube por push (token sin alcance
-`workflow`): va por web + `git pull`. Commits en español `feat:/fix:/ci:`.
+`main` en `github.com/jsvdr/pyngoc`, **público** en GitHub.
+`.github/workflows/` sí se puede pushear (el token tiene alcance `workflow`).
+Commits en español `feat:/fix:/ci:`.

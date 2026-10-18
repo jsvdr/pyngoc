@@ -42,6 +42,19 @@ sobre DRY y sobre ceremonia.
   obligatorias ni empaquetado `src/` sin pedirlo antes.
 - Commits en español, estilo `feat:`/`fix:`/`ci:`.
 
+## Verificación y entrega
+
+- No digas que algo funciona ni que las pruebas pasan si no ejecutaste el
+  comando. Muestra el comando y su salida real.
+- Si algo no se puede verificar (falta un ensamblador, falta `dosbox`),
+  dilo explícito. "Debería andar" no es "anda".
+- No debilites ni borres pruebas, ni silencies errores, para que pase el CI.
+- No uses `push --force` ni `reset --hard` sin autorización.
+- El código tiene que quedar explicable en el examen: ante dos soluciones,
+  elegí la que se pueda defender en voz alta.
+- Al terminar, reportá: qué cambió, qué archivos, qué comandos corriste,
+  qué pasó y qué queda pendiente.
+
 ## Material de referencia (local, no versionado)
 
 Si existe `plantillas-pyngo/`, es material de referencia del profesor

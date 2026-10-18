@@ -1,91 +1,88 @@
 # Intermedio: tabla + tokens -> filas de 3 campos (Nombre, Operador, Atributo).
-# La tabla llena el .DATA; los tokens llenan el .CODE. Cada línea del
-# programa TASM se corta en: Nombre=etiqueta, Operador=mnemónico, Atributo=resto.
+# La tabla llena el .DATA; los tokens llenan el .CODE.
 #
-# La generación va por plantillas: el recorrido solo detecta y pega la
-# plantilla del caso, rellenando sus huecos {..}. El código de cada
-# operación o dato vive en las constantes de abajo, no dentro del método.
+# El generador arma líneas de texto TASM ("MOV AX, a"). Al final, partir_linea()
+# corta cada línea en 3 campos: Nombre = etiqueta o variable, Operador =
+# instrucción o directiva, Atributo = el resto.
+#
 # Aritmética simple (T = A OP B) se emite directa: MOV Reg, A / OP Reg, B /
 # MOV T, Reg. Si un operando es compuesto, se cae a la versión con pila.
 from tokens import Token, TokenKind
 
+# Palabras que van en la columna Operador (nunca son un nombre).
+INSTRUCCIONES = frozenset(
+    {
+        "TITLE",
+        ".MODEL",
+        ".486",
+        ".STACK",
+        ".DATA",
+        ".CODE",
+        ".STARTUP",
+        ".EXIT",
+        "DW",
+        "DB",
+        "PROC",
+        "ENDP",
+        "END",
+        "MOV",
+        "ADD",
+        "SUB",
+        "MUL",
+        "DIV",
+        "CMP",
+        "SETE",
+        "SETA",
+        "SETB",
+        "PUSH",
+        "POP",
+        "INC",
+        "LOOP",
+        "INT",
+        "JMP",
+        "JE",
+        "JNE",
+        "JGE",
+        "JLE",
+    }
+)
+
 # --- Esqueleto del programa ---
-ESQUELETO_INICIO = [
-    ("", "TITLE", "Pyngo"),
-    ("", ".MODEL", "Small"),
-    ("", ".486", ""),
-    ("", ".STACK", ""),
-    ("", "", ""),
-    ("", ".DATA", ""),
-]
+CABECERA = ["TITLE Pyngo", ".MODEL Small", ".486", ".STACK", "", ".DATA"]
 
-ESQUELETO_CODIGO = [
-    ("", "", ""),
-    ("", ".CODE", ""),
-    ("MAIN", "PROC", "FAR"),
-    ("", ".STARTUP", ""),
-    ("", "", ""),
-]
+CODIGO = ["", ".CODE", "MAIN PROC FAR", ".STARTUP", ""]
 
-ESQUELETO_PIE = [
-    ("", "", ""),
-    ("", ".EXIT", ""),
-    ("MAIN", "ENDP", ""),
-    ("", "", ""),
-    ("", "END", ""),
-]
-
-# --- Datos ---
-PLANTILLA_DATO_INT = [("{nombre}", "DW", "?")]
-PLANTILLA_DATO_BOOL = [("{nombre}", "DB", "?")]
-
-# --- Cargar y guardar ---
-PLANTILLA_CARGA = [("", "MOV", "AX, {valor}")]
-PLANTILLA_GUARDA_AX = [("", "MOV", "{nombre}, AX")]
-PLANTILLA_GUARDA_AL = [("", "MOV", "{nombre}, AL")]
-PLANTILLA_APILA = [("", "PUSH", "AX")]
-PLANTILLA_RECOGE = [("", "MOV", "BX, AX"), ("", "POP", "AX")]
-
-# --- Operaciones ---
-PLANTILLA_SUMA = [("", "ADD", "AX, BX")]
-PLANTILLA_RESTA = [("", "SUB", "AX, BX")]
-# MUL BX deja DX:AX = AX * BX (se conserva solo AX).
-PLANTILLA_MULT = [("", "MUL", "BX")]
-# DIV BX divide DX:AX entre BX; se limpia DX primero.
-PLANTILLA_DIV = [("", "MOV", "DX, 0"), ("", "DIV", "BX")]
-# SETxx solo escribe AL: se limpia AH para dejar 0 o 1 en AX.
-PLANTILLA_COMPARA = [
-    ("", "CMP", "AX, BX"),
-    ("", "{mnemonico}", "AL"),
-    ("", "MOV", "AH, 0"),
-]
-
-# --- Pendiente ---
-PLANTILLA_PRINT = [("", ";", "print ( ... ) pendiente")]
+PIE = ["", ".EXIT", "MAIN ENDP", "", "END"]
 
 
-# Sustituye los huecos {..} de una plantilla por sus datos.
-def rellenar(
-    plantilla: list[tuple[str, str, str]], **datos: str
-) -> list[tuple[str, str, str]]:
-    filas: list[tuple[str, str, str]] = []
+# Corta una línea TASM en (Nombre, Operador, Atributo).
+def partir_linea(linea: str) -> tuple[str, str, str]:
+    linea = linea.strip()
 
-    for nombre, operador, atributo in plantilla:
-        filas.append(
-            (nombre.format(**datos), operador.format(**datos), atributo.format(**datos))
-        )
+    if linea == "":
+        return ("", "", "")
 
-    return filas
+    if linea.endswith(":"):
+        return (linea, "", "")
+
+    partes = linea.split(" ", 1)
+
+    if partes[0] in INSTRUCCIONES:
+        return ("", partes[0], partes[1] if len(partes) > 1 else "")
+
+    resto = partes[1].split(" ", 1) if len(partes) > 1 else [""]
+
+    return (partes[0], resto[0], resto[1] if len(resto) > 1 else "")
 
 
 # Generador: copia la forma del parser, pero en vez de reconocer va
-# juntando filas (Nombre, Operador, Atributo). El resultado de cada
-# expresión queda en AX: la izquierda se apila, la derecha se calcula
-# y se pasan a AX=izquierda y BX=derecha.
+# juntando líneas TASM. El resultado de cada expresión queda en AX: la
+# izquierda se apila, la derecha se calcula y se pasan a AX=izquierda y
+# BX=derecha.
 class Generador:
     tokens: list[Token]
     posicion: int
-    filas: list[tuple[str, str, str]]
+    lineas: list[str]
     numero_etiqueta: int
     # nombre_variable -> "int" o "bool", para saber si guardar AX o AL
     tabla: dict[str, str]
@@ -93,7 +90,7 @@ class Generador:
     def __init__(self, tokens: list[Token], tabla: dict[str, str]) -> None:
         self.tokens = tokens
         self.posicion = 0
-        self.filas = []
+        self.lineas = []
         self.numero_etiqueta = 0
         self.tabla = tabla
 
@@ -150,16 +147,16 @@ class Generador:
 
             self.avanzar()
 
-            self.emitir("MOV", f"{nombre_variable}, {valor}")
+            self.emitir(f"MOV {nombre_variable}, {valor}")
 
             return
 
         self.expresion()
 
         if tipo_declarado == "bool":
-            self.agregar(PLANTILLA_GUARDA_AL, nombre=nombre_variable)
+            self.emitir(f"MOV {nombre_variable}, AL")
         else:
-            self.agregar(PLANTILLA_GUARDA_AX, nombre=nombre_variable)
+            self.emitir(f"MOV {nombre_variable}, AX")
 
     # ASIGNACION → ID = EXPRESION
     def asignacion(self) -> None:
@@ -174,16 +171,16 @@ class Generador:
 
             self.avanzar()
 
-            self.emitir("MOV", f"{nombre_variable}, {valor}")
+            self.emitir(f"MOV {nombre_variable}, {valor}")
 
             return
 
         self.expresion()
 
         if self.tabla.get(nombre_variable) == "bool":
-            self.agregar(PLANTILLA_GUARDA_AL, nombre=nombre_variable)
+            self.emitir(f"MOV {nombre_variable}, AL")
         else:
-            self.agregar(PLANTILLA_GUARDA_AX, nombre=nombre_variable)
+            self.emitir(f"MOV {nombre_variable}, AX")
 
     # IF → if EXPRESION { LISTA_DECL } [ else { LISTA_DECL } ]
     # Si la condición es una comparación simple (a < b), se emite CMP + salto
@@ -213,21 +210,21 @@ class Generador:
             if self.token_actual_es(TokenKind.RPAREN):
                 self.avanzar()
 
-            self.emitir("MOV", f"AX, {izquierda}")
-            self.emitir("CMP", f"AX, {derecha}")
+            self.emitir(f"MOV AX, {izquierda}")
+            self.emitir(f"CMP AX, {derecha}")
 
             if operador == TokenKind.LESS:
-                self.emitir("JGE", etiqueta_else)
+                self.emitir(f"JGE {etiqueta_else}")
             elif operador == TokenKind.GREATER:
-                self.emitir("JLE", etiqueta_else)
+                self.emitir(f"JLE {etiqueta_else}")
             else:
-                self.emitir("JNE", etiqueta_else)
+                self.emitir(f"JNE {etiqueta_else}")
 
         else:
             self.expresion()
 
-            self.emitir("CMP", "AX, 0")
-            self.emitir("JE", etiqueta_else)
+            self.emitir("CMP AX, 0")
+            self.emitir(f"JE {etiqueta_else}")
 
         self.avanzar_si_es(TokenKind.LBRACE)
 
@@ -240,7 +237,7 @@ class Generador:
 
             self.avanzar()
 
-            self.emitir("JMP", etiqueta_fin)
+            self.emitir(f"JMP {etiqueta_fin}")
             self.etiqueta(etiqueta_else)
 
             self.avanzar_si_es(TokenKind.LBRACE)
@@ -272,33 +269,33 @@ class Generador:
         etiqueta_fin = self.nueva_etiqueta()
 
         # Si el valor es 0, imprimir '0' y terminar.
-        self.emitir("CMP", "AX, 0")
-        self.emitir("JNE", etiqueta_div)
+        self.emitir("CMP AX, 0")
+        self.emitir(f"JNE {etiqueta_div}")
 
-        self.emitir("MOV", "DL, 48")
-        self.emitir("MOV", "AH, 02H")
-        self.emitir("INT", "21H")
-        self.emitir("JMP", etiqueta_fin)
+        self.emitir("MOV DL, 48")
+        self.emitir("MOV AH, 02H")
+        self.emitir("INT 21H")
+        self.emitir(f"JMP {etiqueta_fin}")
 
         # Extraer dígitos en orden inverso con divisiones entre 10.
         self.etiqueta(etiqueta_div)
-        self.emitir("MOV", "CX, 0")
-        self.emitir("MOV", "BX, 10")
+        self.emitir("MOV CX, 0")
+        self.emitir("MOV BX, 10")
 
-        self.emitir("MOV", "DX, 0")
-        self.emitir("DIV", "BX")
-        self.emitir("PUSH", "DX")
-        self.emitir("INC", "CX")
-        self.emitir("CMP", "AX, 0")
-        self.emitir("JNE", etiqueta_div)
+        self.emitir("MOV DX, 0")
+        self.emitir("DIV BX")
+        self.emitir("PUSH DX")
+        self.emitir("INC CX")
+        self.emitir("CMP AX, 0")
+        self.emitir(f"JNE {etiqueta_div}")
 
         # Imprimir dígitos en orden correcto.
         self.etiqueta(etiqueta_imp)
-        self.emitir("POP", "DX")
-        self.emitir("ADD", "DL, 48")
-        self.emitir("MOV", "AH, 02H")
-        self.emitir("INT", "21H")
-        self.emitir("LOOP", etiqueta_imp)
+        self.emitir("POP DX")
+        self.emitir("ADD DL, 48")
+        self.emitir("MOV AH, 02H")
+        self.emitir("INT 21H")
+        self.emitir(f"LOOP {etiqueta_imp}")
 
         self.etiqueta(etiqueta_fin)
 
@@ -339,7 +336,9 @@ class Generador:
             else:
                 mnemonico = "SETB"
 
-            self.agregar(PLANTILLA_COMPARA, mnemonico=mnemonico)
+            self.emitir("CMP AX, BX")
+            self.emitir(f"{mnemonico} AL")
+            self.emitir("MOV AH, 0")
 
     # SUMA → TERMINO [ ( @ | # ) TERMINO ]*
     # Simple directa: MOV Reg, A / OP Reg, B. Si el operando es compuesto,
@@ -360,9 +359,9 @@ class Generador:
                 self.avanzar()
 
                 if operador == TokenKind.AT:
-                    self.emitir("ADD", f"AX, {valor}")
+                    self.emitir(f"ADD AX, {valor}")
                 else:
-                    self.emitir("SUB", f"AX, {valor}")
+                    self.emitir(f"SUB AX, {valor}")
 
             else:
                 self.apilar_ax()
@@ -370,9 +369,9 @@ class Generador:
                 self.recoger_en_bx()
 
                 if operador == TokenKind.AT:
-                    self.agregar(PLANTILLA_SUMA)
+                    self.emitir("ADD AX, BX")
                 else:
-                    self.agregar(PLANTILLA_RESTA)
+                    self.emitir("SUB AX, BX")
 
     # TERMINO → FACTOR [ ( & | | ) FACTOR ]*
     # Simple directa: MUL/DIV con el operando directo. Si es compuesto,
@@ -394,31 +393,31 @@ class Generador:
 
                         self.avanzar()
 
-                        self.emitir("MUL", variable)
+                        self.emitir(f"MUL {variable}")
                     else:
                         valor = self.valor_factor(self.token_actual())
 
                         self.avanzar()
 
-                        self.emitir("MOV", f"BX, {valor}")
-                        self.emitir("MUL", "BX")
+                        self.emitir(f"MOV BX, {valor}")
+                        self.emitir("MUL BX")
 
                 else:
-                    self.emitir("MOV", "DX, 0")
+                    self.emitir("MOV DX, 0")
 
                     if self.token_actual_es(TokenKind.ID):
                         variable = self.token_actual().lexeme
 
                         self.avanzar()
 
-                        self.emitir("DIV", variable)
+                        self.emitir(f"DIV {variable}")
                     else:
                         valor = self.valor_factor(self.token_actual())
 
                         self.avanzar()
 
-                        self.emitir("MOV", f"BX, {valor}")
-                        self.emitir("DIV", "BX")
+                        self.emitir(f"MOV BX, {valor}")
+                        self.emitir("DIV BX")
 
             else:
                 self.apilar_ax()
@@ -426,9 +425,10 @@ class Generador:
                 self.recoger_en_bx()
 
                 if operador == TokenKind.AMPERSAND:
-                    self.agregar(PLANTILLA_MULT)
+                    self.emitir("MUL BX")
                 else:
-                    self.agregar(PLANTILLA_DIV)
+                    self.emitir("MOV DX, 0")
+                    self.emitir("DIV BX")
 
     # FACTOR → ID | NUM | BOOL | ( EXPRESION )
     def factor(self) -> None:
@@ -437,7 +437,7 @@ class Generador:
 
             self.avanzar()
 
-            self.agregar(PLANTILLA_CARGA, valor=nombre_variable)
+            self.emitir(f"MOV AX, {nombre_variable}")
             return
 
         if self.token_actual_es(TokenKind.NUM):
@@ -445,7 +445,7 @@ class Generador:
 
             self.avanzar()
 
-            self.agregar(PLANTILLA_CARGA, valor=numero)
+            self.emitir(f"MOV AX, {numero}")
             return
 
         if self.token_actual_es(TokenKind.TRUE) or self.token_actual_es(
@@ -455,7 +455,7 @@ class Generador:
 
             self.avanzar()
 
-            self.agregar(PLANTILLA_CARGA, valor=str(valor))
+            self.emitir(f"MOV AX, {valor}")
             return
 
         if self.token_actual_es(TokenKind.LPAREN):
@@ -468,23 +468,20 @@ class Generador:
 
     # La izquierda se guarda en la pila mientras se calcula la derecha.
     def apilar_ax(self) -> None:
-        self.agregar(PLANTILLA_APILA)
+        self.emitir("PUSH AX")
 
     # Con la derecha en AX y la izquierda en la pila: AX=izq, BX=der.
     def recoger_en_bx(self) -> None:
-        self.agregar(PLANTILLA_RECOGE)
+        self.emitir("MOV BX, AX")
+        self.emitir("POP AX")
 
-    # Pega una plantilla rellenando sus huecos {..}.
-    def agregar(self, plantilla: list[tuple[str, str, str]], **datos: str) -> None:
-        self.filas.extend(rellenar(plantilla, **datos))
-
-    # Una sola fila sin plantilla.
-    def emitir(self, operador: str, atributo: str = "") -> None:
-        self.filas.append(("", operador, atributo))
+    # Una línea TASM más.
+    def emitir(self, linea: str) -> None:
+        self.lineas.append(linea)
 
     # Una etiqueta en la columna Nombre.
     def etiqueta(self, nombre: str) -> None:
-        self.filas.append((f"{nombre}:", "", ""))
+        self.lineas.append(f"{nombre}:")
 
     def nueva_etiqueta(self) -> str:
         self.numero_etiqueta += 1
@@ -630,21 +627,21 @@ def generar_codigo_intermedio(
     if len(tabla) == 0 and not tiene_print:
         return []
 
-    filas: list[tuple[str, str, str]] = list(ESQUELETO_INICIO)
+    lineas: list[str] = list(CABECERA)
 
     for nombre_variable, tipo_declarado in tabla.items():
         if tipo_declarado == "int":
-            filas.extend(rellenar(PLANTILLA_DATO_INT, nombre=nombre_variable))
+            lineas.append(f"{nombre_variable} DW ?")
 
         elif tipo_declarado == "bool":
-            filas.extend(rellenar(PLANTILLA_DATO_BOOL, nombre=nombre_variable))
+            lineas.append(f"{nombre_variable} DB ?")
 
-    filas.extend(ESQUELETO_CODIGO)
+    lineas.extend(CODIGO)
 
     generador = Generador(tokens, tabla)
     generador.programa()
 
-    filas.extend(generador.filas)
-    filas.extend(ESQUELETO_PIE)
+    lineas.extend(generador.lineas)
+    lineas.extend(PIE)
 
-    return filas
+    return [partir_linea(linea) for linea in lineas]

@@ -3,6 +3,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Pytest
+.pytest_cache/
+
 # Virtualenv
 .venv/
 venv/
@@ -21,3 +24,6 @@ build/
 Thumbs.db
 .vscode/
 .idea/
+
+# Entorno (nunca subir claves)
+.env

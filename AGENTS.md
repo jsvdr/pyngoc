@@ -55,10 +55,10 @@ sobre DRY y sobre ceremonia.
 - Al terminar, reportá: qué cambió, qué archivos, qué comandos corriste,
   qué pasó y qué queda pendiente.
 
-## Material de referencia (local, no versionado)
+## Material local (no versionado)
 
-Si existe `plantillas-pyngo/`, es material de referencia del profesor
-(plantillas TASM, salidas esperadas y ejemplos `.asm`). Leer su
+Si existe `plantillas-pyngo/`, es material de trabajo local: plantillas del
+profesor (`plantillas.md`, `ejemplos/`) y notas propias (`sesion.md`). Leer
 `plantillas.md` antes de tocar `backend/intermedio.py`. Esa carpeta está
 ignorada vía `.git/info/exclude`: no se sube nunca, no agregarla a git ni
 citar su contenido en el repo.

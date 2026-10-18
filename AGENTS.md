@@ -9,7 +9,7 @@ sobre DRY y sobre ceremonia.
 - Backend: Python 3.12 + Flask (`pip install -r requirements.txt`).
 - Servidor: `python backend/app.py` → `http://127.0.0.1:5000`.
 - Lint/formato: `ruff check backend/ tests/` y `ruff format --check backend/ tests/`.
-- Tests: `pytest tests/ -q` (5 casos de humo, deben pasar siempre).
+- Tests: `pytest tests/ -q` (22 casos de humo, deben pasar siempre).
 - Frontend: HTML/CSS/JS vanilla servido por Flask. Puertos: Flask `:5000`.
 
 ## Convenciones (no negociables sin preguntar)

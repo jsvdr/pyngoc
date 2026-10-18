@@ -29,11 +29,11 @@ sin AST, mensajes exactos, gramática intocable sin permiso.
 
 ```bash
 python backend/app.py        # :5000
-pytest tests/ -q             # 5 humo, siempre verdes
+pytest tests/ -q             # 22 casos, siempre verdes
 ruff check backend/ tests/ && ruff format --check backend/ tests/
 ```
 
-## 5 casos que siempre funcionan
+## 5 casos representativos (la suite tiene 22)
 
 ```text
 { int a = 1; bool b = true; }   → Semantic OK

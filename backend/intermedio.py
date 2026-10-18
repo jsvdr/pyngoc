@@ -5,9 +5,15 @@
 # corta cada línea en 3 campos: Nombre = etiqueta o variable, Operador =
 # instrucción o directiva, Atributo = el resto.
 #
-# Aritmética simple (T = A OP B) se emite directa: MOV Reg, A / OP Reg, B /
-# MOV T, Reg. Si un operando es compuesto, se cae a la versión con pila.
+# Versión sencilla: cada expresión se calcula en AX y solo se admiten operandos
+# simples (variable, número o true/false). Se pueden encadenar operaciones del
+# mismo nivel (@ # o & |). Si hiciera falta la pila, se lanza ErrorIntermedio.
 from tokens import Token, TokenKind
+
+
+class ErrorIntermedio(Exception):
+    """Construcción que esta versión sencilla del generador no produce."""
+
 
 # Palabras que van en la columna Operador (nunca son un nombre).
 INSTRUCCIONES = frozenset(
@@ -55,6 +61,19 @@ CODIGO = ["", ".CODE", "MAIN PROC FAR", ".STARTUP", ""]
 PIE = ["", ".EXIT", "MAIN ENDP", "", "END"]
 
 
+# Operadores de multiplicación/división: no pueden ir tras el lado derecho
+# de una suma o una resta (sería un término compuesto).
+PROHIBIDO_TRAS_SUMA = (TokenKind.AMPERSAND, TokenKind.PIPE)
+
+# Tras el lado derecho de una comparación no puede venir ninguna operación.
+PROHIBIDO_TRAS_COMPARACION = (
+    TokenKind.AT,
+    TokenKind.HASH,
+    TokenKind.AMPERSAND,
+    TokenKind.PIPE,
+)
+
+
 # Corta una línea TASM en (Nombre, Operador, Atributo).
 def partir_linea(linea: str) -> tuple[str, str, str]:
     linea = linea.strip()
@@ -75,10 +94,8 @@ def partir_linea(linea: str) -> tuple[str, str, str]:
     return (partes[0], resto[0], resto[1] if len(resto) > 1 else "")
 
 
-# Generador: copia la forma del parser, pero en vez de reconocer va
-# juntando líneas TASM. El resultado de cada expresión queda en AX: la
-# izquierda se apila, la derecha se calcula y se pasan a AX=izquierda y
-# BX=derecha.
+# Generador: copia la forma del parser, pero en vez de reconocer va juntando
+# líneas TASM. El resultado de cada expresión queda en AX.
 class Generador:
     tokens: list[Token]
     posicion: int
@@ -141,16 +158,6 @@ class Generador:
         self.avanzar_si_es(TokenKind.ID)
         self.avanzar_si_es(TokenKind.ASSIGN)
 
-        # Simple: un solo literal -> MOV var, literal (una línea).
-        if self.es_expr_simple():
-            valor = self.valor_factor(self.token_actual())
-
-            self.avanzar()
-
-            self.emitir(f"MOV {nombre_variable}, {valor}")
-
-            return
-
         self.expresion()
 
         if tipo_declarado == "bool":
@@ -164,16 +171,6 @@ class Generador:
 
         self.avanzar_si_es(TokenKind.ID)
         self.avanzar_si_es(TokenKind.ASSIGN)
-
-        # Simple: un solo literal -> MOV var, literal (una línea).
-        if self.es_expr_simple():
-            valor = self.valor_factor(self.token_actual())
-
-            self.avanzar()
-
-            self.emitir(f"MOV {nombre_variable}, {valor}")
-
-            return
 
         self.expresion()
 
@@ -190,27 +187,21 @@ class Generador:
         etiqueta_else = self.nueva_etiqueta()
 
         self.avanzar_si_es(TokenKind.IF)
+        self.avanzar_si_es(TokenKind.LPAREN)
 
-        if self.es_comparacion_simple():
-            if self.token_actual_es(TokenKind.LPAREN):
-                self.avanzar()
+        if self.es_comparacion():
+            izquierda = self.operando()
 
-            izquierda = self.valor_factor(self.token_actual())
-
-            self.avanzar()
+            self.emitir(f"MOV AX, {izquierda}")
 
             operador = self.token_actual().kind
 
             self.avanzar()
 
-            derecha = self.valor_factor(self.token_actual())
+            derecha = self.operando()
 
-            self.avanzar()
+            self.exigir_simple("la comparación", PROHIBIDO_TRAS_COMPARACION)
 
-            if self.token_actual_es(TokenKind.RPAREN):
-                self.avanzar()
-
-            self.emitir(f"MOV AX, {izquierda}")
             self.emitir(f"CMP AX, {derecha}")
 
             if operador == TokenKind.LESS:
@@ -226,6 +217,7 @@ class Generador:
             self.emitir("CMP AX, 0")
             self.emitir(f"JE {etiqueta_else}")
 
+        self.avanzar_si_es(TokenKind.RPAREN)
         self.avanzar_si_es(TokenKind.LBRACE)
 
         self.lista_decl()
@@ -311,9 +303,34 @@ class Generador:
 
         return None
 
-    # EXPRESION → SUMA [ ( == | > | < ) SUMA ]
-    # Compara sin signo: SETE / SETA / SETB.
+    # EXPRESION → COMPARACION | SUMA
+    # La comparación es directa (CMP + SETcc) y deja 0 o 1 en AX.
     def expresion(self) -> None:
+        if self.es_comparacion():
+            izquierda = self.operando()
+
+            self.emitir(f"MOV AX, {izquierda}")
+
+            operador = self.token_actual().kind
+
+            self.avanzar()
+
+            derecha = self.operando()
+
+            self.exigir_simple("la comparación", PROHIBIDO_TRAS_COMPARACION)
+
+            self.emitir(f"CMP AX, {derecha}")
+
+            if operador == TokenKind.EQ:
+                self.emitir("SETE AL")
+            elif operador == TokenKind.GREATER:
+                self.emitir("SETA AL")
+            else:
+                self.emitir("SETB AL")
+
+            self.emitir("MOV AH, 0")
+            return
+
         self.suma()
 
         if (
@@ -321,28 +338,11 @@ class Generador:
             or self.token_actual_es(TokenKind.GREATER)
             or self.token_actual_es(TokenKind.LESS)
         ):
-            operador = self.token_actual().kind
+            raise ErrorIntermedio(
+                "En una comparación, los dos lados deben ser operandos simples."
+            )
 
-            self.avanzar()
-
-            self.apilar_ax()
-            self.suma()
-            self.recoger_en_bx()
-
-            if operador == TokenKind.EQ:
-                mnemonico = "SETE"
-            elif operador == TokenKind.GREATER:
-                mnemonico = "SETA"
-            else:
-                mnemonico = "SETB"
-
-            self.emitir("CMP AX, BX")
-            self.emitir(f"{mnemonico} AL")
-            self.emitir("MOV AH, 0")
-
-    # SUMA → TERMINO [ ( @ | # ) TERMINO ]*
-    # Simple directa: MOV Reg, A / OP Reg, B. Si el operando es compuesto,
-    # se cae a la versión con pila.
+    # SUMA → TERMINO [ ( @ | # ) OPERANDO ]*   (@ suma, # resta)
     def suma(self) -> None:
         self.termino()
 
@@ -353,31 +353,20 @@ class Generador:
 
             self.avanzar()
 
-            if self.es_factor_simple():
-                valor = self.valor_factor(self.token_actual())
+            derecha = self.operando()
 
-                self.avanzar()
+            self.exigir_simple("la suma o la resta", PROHIBIDO_TRAS_SUMA)
 
-                if operador == TokenKind.AT:
-                    self.emitir(f"ADD AX, {valor}")
-                else:
-                    self.emitir(f"SUB AX, {valor}")
-
+            if operador == TokenKind.AT:
+                self.emitir(f"ADD AX, {derecha}")
             else:
-                self.apilar_ax()
-                self.termino()
-                self.recoger_en_bx()
+                self.emitir(f"SUB AX, {derecha}")
 
-                if operador == TokenKind.AT:
-                    self.emitir("ADD AX, BX")
-                else:
-                    self.emitir("SUB AX, BX")
-
-    # TERMINO → FACTOR [ ( & | | ) FACTOR ]*
-    # Simple directa: MUL/DIV con el operando directo. Si es compuesto,
-    # se cae a la versión con pila.
+    # TERMINO → OPERANDO [ ( & | | ) OPERANDO ]*   (& multiplica, | divide)
     def termino(self) -> None:
-        self.factor()
+        izquierda = self.operando()
+
+        self.emitir(f"MOV AX, {izquierda}")
 
         while self.token_actual_es(TokenKind.AMPERSAND) or self.token_actual_es(
             TokenKind.PIPE
@@ -386,94 +375,57 @@ class Generador:
 
             self.avanzar()
 
-            if self.es_factor_simple():
-                if operador == TokenKind.AMPERSAND:
-                    if self.token_actual_es(TokenKind.ID):
-                        variable = self.token_actual().lexeme
+            derecha = self.operando()
 
-                        self.avanzar()
+            self.emitir(f"MOV BX, {derecha}")
 
-                        self.emitir(f"MUL {variable}")
-                    else:
-                        valor = self.valor_factor(self.token_actual())
-
-                        self.avanzar()
-
-                        self.emitir(f"MOV BX, {valor}")
-                        self.emitir("MUL BX")
-
-                else:
-                    self.emitir("MOV DX, 0")
-
-                    if self.token_actual_es(TokenKind.ID):
-                        variable = self.token_actual().lexeme
-
-                        self.avanzar()
-
-                        self.emitir(f"DIV {variable}")
-                    else:
-                        valor = self.valor_factor(self.token_actual())
-
-                        self.avanzar()
-
-                        self.emitir(f"MOV BX, {valor}")
-                        self.emitir("DIV BX")
-
+            if operador == TokenKind.AMPERSAND:
+                self.emitir("MUL BX")
             else:
-                self.apilar_ax()
-                self.factor()
-                self.recoger_en_bx()
+                self.emitir("MOV DX, 0")
+                self.emitir("DIV BX")
 
-                if operador == TokenKind.AMPERSAND:
-                    self.emitir("MUL BX")
-                else:
-                    self.emitir("MOV DX, 0")
-                    self.emitir("DIV BX")
+    # OPERANDO → ID | NUM | true | false   (devuelve el valor como texto)
+    def operando(self) -> str:
+        token = self.token_actual()
 
-    # FACTOR → ID | NUM | BOOL | ( EXPRESION )
-    def factor(self) -> None:
-        if self.token_actual_es(TokenKind.ID):
-            nombre_variable = self.token_actual().lexeme
-
+        if token.kind == TokenKind.TRUE:
             self.avanzar()
+            return "1"
 
-            self.emitir(f"MOV AX, {nombre_variable}")
-            return
-
-        if self.token_actual_es(TokenKind.NUM):
-            numero = self.token_actual().lexeme
-
+        if token.kind == TokenKind.FALSE:
             self.avanzar()
+            return "0"
 
-            self.emitir(f"MOV AX, {numero}")
-            return
-
-        if self.token_actual_es(TokenKind.TRUE) or self.token_actual_es(
-            TokenKind.FALSE
-        ):
-            valor = 1 if self.token_actual_es(TokenKind.TRUE) else 0
-
+        if token.kind in (TokenKind.ID, TokenKind.NUM):
             self.avanzar()
+            return token.lexeme
 
-            self.emitir(f"MOV AX, {valor}")
-            return
+        if token.kind == TokenKind.LPAREN:
+            raise ErrorIntermedio("No se admiten paréntesis dentro de una expresión.")
 
-        if self.token_actual_es(TokenKind.LPAREN):
-            self.avanzar()
+        raise ErrorIntermedio("Se esperaba una variable, un número o true/false.")
 
-            self.expresion()
+    # El lado derecho no puede traer una operación de otro nivel: si fuera
+    # compuesto haría falta la pila, que esta versión no usa.
+    def exigir_simple(self, contexto: str, prohibidos: tuple[TokenKind, ...]) -> None:
+        if self.token_actual().kind in prohibidos:
+            raise ErrorIntermedio(
+                f"El lado derecho de {contexto} debe ser un operando simple."
+            )
 
-            self.avanzar_si_es(TokenKind.RPAREN)
-            return
+    # ¿La expresión actual es "operando ( == | > | < ) ..."?
+    def es_comparacion(self) -> bool:
+        posicion_siguiente = self.posicion + 1
 
-    # La izquierda se guarda en la pila mientras se calcula la derecha.
-    def apilar_ax(self) -> None:
-        self.emitir("PUSH AX")
+        if posicion_siguiente >= len(self.tokens):
+            return False
 
-    # Con la derecha en AX y la izquierda en la pila: AX=izq, BX=der.
-    def recoger_en_bx(self) -> None:
-        self.emitir("MOV BX, AX")
-        self.emitir("POP AX")
+        return self.tokens[posicion_siguiente].kind in (
+            TokenKind.EQ,
+            TokenKind.GREATER,
+            TokenKind.LESS,
+        )
 
     # Una línea TASM más.
     def emitir(self, linea: str) -> None:
@@ -486,123 +438,6 @@ class Generador:
     def nueva_etiqueta(self) -> str:
         self.numero_etiqueta += 1
         return f"ETQ{self.numero_etiqueta}"
-
-    # ¿La expresión actual es un solo factor literal o variable?
-    def es_expr_simple(self) -> bool:
-        if not (
-            self.token_actual_es(TokenKind.ID)
-            or self.token_actual_es(TokenKind.NUM)
-            or self.token_actual_es(TokenKind.TRUE)
-            or self.token_actual_es(TokenKind.FALSE)
-        ):
-            return False
-
-        posicion_siguiente = self.posicion + 1
-
-        if posicion_siguiente < len(self.tokens):
-            tipo_siguiente = self.tokens[posicion_siguiente].kind
-
-            if tipo_siguiente in (
-                TokenKind.AT,
-                TokenKind.HASH,
-                TokenKind.AMPERSAND,
-                TokenKind.PIPE,
-                TokenKind.EQ,
-                TokenKind.GREATER,
-                TokenKind.LESS,
-            ):
-                return False
-
-        return True
-
-    # ¿El factor actual es simple (ID/NUM/BOOL) y no va seguido de & o |?
-    def es_factor_simple(self) -> bool:
-        if not (
-            self.token_actual_es(TokenKind.ID)
-            or self.token_actual_es(TokenKind.NUM)
-            or self.token_actual_es(TokenKind.TRUE)
-            or self.token_actual_es(TokenKind.FALSE)
-        ):
-            return False
-
-        posicion_siguiente = self.posicion + 1
-
-        if posicion_siguiente < len(self.tokens):
-            tipo_siguiente = self.tokens[posicion_siguiente].kind
-
-            if tipo_siguiente in (TokenKind.AMPERSAND, TokenKind.PIPE):
-                return False
-
-        return True
-
-    # ¿La condición es una comparación simple (factor OP factor)?
-    def es_comparacion_simple(self) -> bool:
-        posicion = self.posicion
-
-        if posicion >= len(self.tokens):
-            return False
-
-        # Se permite un paréntesis inicial.
-        if self.tokens[posicion].kind == TokenKind.LPAREN:
-            posicion += 1
-
-        if posicion >= len(self.tokens):
-            return False
-
-        if self.tokens[posicion].kind not in (
-            TokenKind.ID,
-            TokenKind.NUM,
-            TokenKind.TRUE,
-            TokenKind.FALSE,
-        ):
-            return False
-
-        posicion += 1
-
-        if posicion >= len(self.tokens):
-            return False
-
-        if self.tokens[posicion].kind not in (
-            TokenKind.EQ,
-            TokenKind.GREATER,
-            TokenKind.LESS,
-        ):
-            return False
-
-        posicion += 1
-
-        if posicion >= len(self.tokens):
-            return False
-
-        if self.tokens[posicion].kind not in (
-            TokenKind.ID,
-            TokenKind.NUM,
-            TokenKind.TRUE,
-            TokenKind.FALSE,
-        ):
-            return False
-
-        posicion += 1
-
-        if posicion >= len(self.tokens):
-            return False
-
-        return self.tokens[posicion].kind in (
-            TokenKind.RPAREN,
-            TokenKind.LBRACE,
-            TokenKind.SEMICOLON,
-            TokenKind.EOF,
-        )
-
-    # Valor de un factor simple (ID/NUM/TRUE/FALSE) como texto.
-    def valor_factor(self, token: Token) -> str:
-        if token.kind == TokenKind.TRUE:
-            return "1"
-
-        if token.kind == TokenKind.FALSE:
-            return "0"
-
-        return token.lexeme
 
     def avanzar_si_es(self, kind_esperado: TokenKind) -> None:
         if self.token_actual_es(kind_esperado):

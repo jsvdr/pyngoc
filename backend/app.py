@@ -4,7 +4,7 @@ from typing import Any
 # App: une scanner -> parser -> semántico -> intermedio y sirve la GUI.
 # Lo de fuera no se confía: se revisa con isinstance o se devuelve 400.
 from flask import Flask, Response, jsonify, request, send_from_directory
-from intermedio import generar_codigo_intermedio
+from intermedio import ErrorIntermedio, generar_codigo_intermedio
 from parser import Parser
 from scanner import analizar_lexico
 from semantico import AnalizadorSemantico
@@ -254,7 +254,17 @@ def generar_intermedio() -> Response | tuple[Response, int]:
         )
 
     # 4. Generar CI
-    filas = generar_codigo_intermedio(revisor_tipos.tabla, lista_tokens)
+    try:
+        filas = generar_codigo_intermedio(revisor_tipos.tabla, lista_tokens)
+    except ErrorIntermedio as error:
+        return jsonify(
+            {
+                "ok": False,
+                "filas": [],
+                "mensaje": "",
+                "errores": [str(error)],
+            }
+        )
 
     mensaje = ""
     if len(filas) == 0:

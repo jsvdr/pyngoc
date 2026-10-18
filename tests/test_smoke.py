@@ -98,8 +98,10 @@ def test_codigo_intermedio_tabla_3_campos() -> None:
         ("MAIN", "PROC", "FAR"),
         ("", ".STARTUP", ""),
         ("", "", ""),
-        ("", "MOV", "contador, 1"),
-        ("", "MOV", "activo, 1"),
+        ("", "MOV", "AX, 1"),
+        ("", "MOV", "contador, AX"),
+        ("", "MOV", "AX, 1"),
+        ("", "MOV", "activo, AL"),
         ("", "", ""),
         ("", ".EXIT", ""),
         ("MAIN", "ENDP", ""),
@@ -121,7 +123,7 @@ def _filas_print(valor: int) -> list[tuple[str, str, str]]:
 def test_print_codigo_3() -> None:
     filas = _filas_print(3)
 
-    assert ("", "MOV", "x, 3") in filas
+    assert ("", "MOV", "AX, 3") in filas
     assert ("", "MOV", "AX, x") in filas
 
     # Caso cero imprime '0' (48).
@@ -159,7 +161,7 @@ def test_print_codigo_3() -> None:
 def test_print_codigo_42() -> None:
     filas = _filas_print(42)
 
-    assert ("", "MOV", "x, 42") in filas
+    assert ("", "MOV", "AX, 42") in filas
     assert ("", "MOV", "AX, x") in filas
 
     assert ("", "MOV", "BX, 10") in filas
@@ -183,7 +185,7 @@ def test_print_codigo_42() -> None:
 def test_print_codigo_12345() -> None:
     filas = _filas_print(12345)
 
-    assert ("", "MOV", "x, 12345") in filas
+    assert ("", "MOV", "AX, 12345") in filas
     assert ("", "MOV", "AX, x") in filas
 
     assert ("", "MOV", "BX, 10") in filas
@@ -221,10 +223,12 @@ def test_intermedio_cuatro_operadores() -> None:
     # @ -> ADD, # -> SUB.
     assert ("", "ADD", "AX, b") in filas
     assert ("", "SUB", "AX, b") in filas
-    # & -> MUL, | -> DIV (con DX limpio).
-    assert ("", "MUL", "b") in filas
+
+    # & -> MUL, | -> DIV (el operando pasa por BX y DX se limpia antes).
+    assert ("", "MOV", "BX, b") in filas
+    assert ("", "MUL", "BX") in filas
     assert ("", "MOV", "DX, 0") in filas
-    assert ("", "DIV", "b") in filas
+    assert ("", "DIV", "BX") in filas
 
 
 def test_intermedio_if_con_etiquetas() -> None:
@@ -233,19 +237,19 @@ def test_intermedio_if_con_etiquetas() -> None:
     )
 
     # Condición: MOV AX, a / CMP AX, b / salto si falso (a < b -> JGE).
-    assert ("", "MOV", "AX, a") in filas
     assert ("", "CMP", "AX, b") in filas
     assert ("", "JGE", "ETQ1") in filas
 
     # Rama verdadera, salto al fin, etiqueta else, rama falsa, etiqueta fin.
-    assert ("", "MOV", "m, b") in filas
+    assert ("", "MOV", "m, AX") in filas
     assert ("", "JMP", "ETQ2") in filas
     assert ("ETQ1:", "", "") in filas
-    assert ("", "MOV", "m, a") in filas
     assert ("ETQ2:", "", "") in filas
 
-    # El salto condicional va antes de la rama verdadera.
+    # El salto condicional va antes de la rama verdadera, y el else antes del fin.
     idx_cmp = filas.index(("", "CMP", "AX, b"))
     idx_salto = filas.index(("", "JGE", "ETQ1"))
-    idx_verdad = filas.index(("", "MOV", "m, b"))
-    assert idx_cmp < idx_salto < idx_verdad
+    idx_verdad = filas.index(("", "MOV", "AX, b"))
+    idx_else = filas.index(("ETQ1:", "", ""))
+    idx_fin = filas.index(("ETQ2:", "", ""))
+    assert idx_cmp < idx_salto < idx_verdad < idx_else < idx_fin

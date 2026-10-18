@@ -54,6 +54,7 @@ encadenar operaciones del mismo nivel:
 - `a @ b @ c` → `ADD AX, b` / `ADD AX, c`
 - `a & b | c` → `MUL BX` / `DIV BX`
 - `while (a < b) { ... }` → etiqueta al inicio, `CMP` + salto, `JMP` de vuelta
+- los `bool` son `DB`: se cargan con `MOV AL` + `MOV AH, 0` y se comparan con `CMP AL`
 - `print(x)` cubre enteros de 0 a 65535 con `INT 21H` / `AH=02H`
 
 Si hiciera falta la pila (por ejemplo `a @ b & c` o `( a @ b )`), el botón CI

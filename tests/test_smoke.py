@@ -357,3 +357,44 @@ def test_scanner_acepta_minusculas_y_digitos() -> None:
 
     assert lista_errores == []
     assert any(token.lexeme == "contador1" for token in lista_tokens)
+
+
+def test_intermedio_bool_se_carga_con_al() -> None:
+    filas = _filas("{ bool p = true; bool r = p; }")
+
+    # p es DB (1 byte): se carga con AL y se limpia AH, así AX vale 0 o 1.
+    assert ("", "MOV", "AL, p") in filas
+    assert ("", "MOV", "AH, 0") in filas
+    assert ("", "MOV", "r, AL") in filas
+
+    # Nunca se carga un DB con un registro de 16 bits.
+    assert ("", "MOV", "AX, p") not in filas
+
+
+def test_intermedio_comparacion_de_bools_usa_al() -> None:
+    filas = _filas("{ bool p = true; bool q = p == p; }")
+
+    assert ("", "CMP", "AL, p") in filas
+    assert ("", "SETE", "AL") in filas
+    assert ("", "MOV", "q, AL") in filas
+
+    assert ("", "CMP", "AX, p") not in filas
+
+
+def test_intermedio_if_con_bool_usa_al() -> None:
+    filas = _filas("{ bool p = false; if (p) { print ( 1 ); }; }")
+
+    # La condición queda completa en AX (0 o 1) y recién ahí se compara con 0.
+    indice_salto = filas.index(("", "JE", "ETQ1"))
+
+    assert filas[indice_salto - 1] == ("", "CMP", "AX, 0")
+    assert filas[indice_salto - 2] == ("", "MOV", "AH, 0")
+    assert filas[indice_salto - 3] == ("", "MOV", "AL, p")
+
+
+def test_intermedio_nunca_mezcla_ax_con_un_bool() -> None:
+    filas = _filas("{ bool p = true; bool q = p == p; if (p) { q = q == p; }; }")
+
+    for _, operador, atributo in filas:
+        if operador in ("MOV", "CMP") and atributo.startswith(("AX,", "BX,")):
+            assert "p" not in atributo and "q" not in atributo

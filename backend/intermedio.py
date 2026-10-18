@@ -9,6 +9,9 @@
 # simples (variable, número o true/false). Se pueden encadenar operaciones del
 # mismo nivel (@ # o & |). Si una expresión necesitara la pila, se lanza
 # ErrorIntermedio.
+#
+# Los bool son DB (1 byte): se cargan con MOV AL y se limpia AH, y al comparar
+# dos bool se usa CMP AL. Así AX siempre queda con el valor completo.
 from tokens import Token, TokenKind
 
 
@@ -73,7 +76,7 @@ class Generador:
     posicion: int
     lineas: list[str]
     numero_etiqueta: int
-    # nombre_variable -> "int" o "bool", para saber si guardar AX o AL
+    # nombre_variable -> "int" o "bool" (los bool son DB: van con AL/AH)
     tabla: dict[str, str]
 
     def __init__(self, tokens: list[Token], tabla: dict[str, str]) -> None:
@@ -163,7 +166,7 @@ class Generador:
         if self.es_comparacion():
             izquierda = self.operando()
 
-            self.emitir(f"MOV AX, {izquierda}")
+            self.cargar_en_ax(izquierda)
 
             operador = self.token_actual().kind
 
@@ -173,7 +176,7 @@ class Generador:
 
             self.exigir_simple("la comparación", PROHIBIDO_TRAS_COMPARACION)
 
-            self.emitir(f"CMP AX, {derecha}")
+            self.comparar_con(derecha)
 
             if operador == TokenKind.LESS:
                 self.emitir(f"JGE {etiqueta_falsa}")
@@ -313,7 +316,7 @@ class Generador:
         if self.es_comparacion():
             izquierda = self.operando()
 
-            self.emitir(f"MOV AX, {izquierda}")
+            self.cargar_en_ax(izquierda)
 
             operador = self.token_actual().kind
 
@@ -323,7 +326,7 @@ class Generador:
 
             self.exigir_simple("la comparación", PROHIBIDO_TRAS_COMPARACION)
 
-            self.emitir(f"CMP AX, {derecha}")
+            self.comparar_con(derecha)
 
             if operador == TokenKind.EQ:
                 self.emitir("SETE AL")
@@ -370,7 +373,7 @@ class Generador:
     def termino(self) -> None:
         izquierda = self.operando()
 
-        self.emitir(f"MOV AX, {izquierda}")
+        self.cargar_en_ax(izquierda)
 
         while self.token_actual_es(TokenKind.AMPERSAND) or self.token_actual_es(
             TokenKind.PIPE
@@ -409,6 +412,25 @@ class Generador:
             raise ErrorIntermedio("No se admiten paréntesis dentro de una expresión.")
 
         raise ErrorIntermedio("Se esperaba una variable, un número o true/false.")
+
+    # Carga un operando en AX. Si es una variable bool la carga con AL y limpia
+    # AH, porque los bool son DB (1 byte) y no entran en un MOV de 16 bits. Así
+    # AX queda valiendo 0 o 1 y el resto del código sigue igual.
+    def cargar_en_ax(self, operando: str) -> None:
+        if self.tabla.get(operando) == "bool":
+            self.emitir(f"MOV AL, {operando}")
+            self.emitir("MOV AH, 0")
+        else:
+            self.emitir(f"MOV AX, {operando}")
+
+    # Compara AX con otro operando. Si el otro es un bool (DB) compara con AL:
+    # no se puede mezclar un registro de 16 bits con un byte. Eso solo pasa en
+    # "bool == bool", porque el semántico exige el mismo tipo en la comparación.
+    def comparar_con(self, operando: str) -> None:
+        if self.tabla.get(operando) == "bool":
+            self.emitir(f"CMP AL, {operando}")
+        else:
+            self.emitir(f"CMP AX, {operando}")
 
     # El lado derecho no puede traer una operación de otro nivel: si fuera
     # compuesto haría falta la pila, que esta versión no usa.

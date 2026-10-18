@@ -24,7 +24,7 @@ INSTRUCCIONES = frozenset(
     "TITLE .MODEL .486 .STACK .DATA .CODE .STARTUP .EXIT "
     "DW DB PROC ENDP END "
     "MOV ADD SUB MUL DIV CMP SETE SETA SETB "
-    "PUSH POP INC LOOP INT "
+    "INT "
     "JMP JE JNE JGE JLE".split()
 )
 
@@ -251,10 +251,9 @@ class Generador:
         self.etiqueta(etiqueta_fin)
 
     # PRINT → print ( EXPRESION )
-    # Imprime cualquier entero no negativo 0..65535 con INT 21H / AH=02H.
-    # Extrae los dígitos con divisiones entre 10 (en orden inverso, guardándolos
-    # en la pila) y los imprime en orden correcto, convirtiendo cada uno a ASCII
-    # sumando 48. El caso 0 se trata aparte.
+    # El valor queda en AX y se parte en 2 dígitos: COC = decenas y RESI =
+    # unidades. Cada uno se pasa a ASCII sumando 30H y se imprime con
+    # INT 21H / AH=02H, igual que en la plantilla del profe.
     def print_stmt(self) -> None:
         self.avanzar_si_es(TokenKind.PRINT)
         self.avanzar_si_es(TokenKind.LPAREN)
@@ -263,40 +262,22 @@ class Generador:
 
         self.avanzar_si_es(TokenKind.RPAREN)
 
-        etiqueta_div = self.nueva_etiqueta()
-        etiqueta_imp = self.nueva_etiqueta()
-        etiqueta_fin = self.nueva_etiqueta()
+        # AX / 10 -> AL = decenas, AH = unidades.
+        self.emitir("MOV DL, 10")
+        self.emitir("DIV DL")
+        self.emitir("MOV COC, AL")
+        self.emitir("MOV RESI, AH")
 
-        # Si el valor es 0, imprimir '0' y terminar.
-        self.emitir("CMP AX, 0")
-        self.emitir(f"JNE {etiqueta_div}")
-
-        self.emitir("MOV DL, 48")
+        # Primero las decenas y después las unidades.
+        self.emitir("MOV DL, COC")
+        self.emitir("ADD DL, 30H")
         self.emitir("MOV AH, 02H")
         self.emitir("INT 21H")
-        self.emitir(f"JMP {etiqueta_fin}")
 
-        # Extraer dígitos en orden inverso con divisiones entre 10.
-        self.etiqueta(etiqueta_div)
-        self.emitir("MOV CX, 0")
-        self.emitir("MOV BX, 10")
-
-        self.emitir("MOV DX, 0")
-        self.emitir("DIV BX")
-        self.emitir("PUSH DX")
-        self.emitir("INC CX")
-        self.emitir("CMP AX, 0")
-        self.emitir(f"JNE {etiqueta_div}")
-
-        # Imprimir dígitos en orden correcto.
-        self.etiqueta(etiqueta_imp)
-        self.emitir("POP DX")
-        self.emitir("ADD DL, 48")
+        self.emitir("MOV DL, RESI")
+        self.emitir("ADD DL, 30H")
         self.emitir("MOV AH, 02H")
         self.emitir("INT 21H")
-        self.emitir(f"LOOP {etiqueta_imp}")
-
-        self.etiqueta(etiqueta_fin)
 
     # TIPO_DATO → int | bool
     def tipo_dato(self) -> str | None:
@@ -496,6 +477,12 @@ def generar_codigo_intermedio(
 
         elif tipo_declarado == "bool":
             lineas.append(f"{nombre_variable} DB ?")
+
+    # COC y RESI son la basura donde el print parte el número: solo se declaran
+    # si el programa tiene un print.
+    if tiene_print:
+        lineas.append("COC DB ?")
+        lineas.append("RESI DB ?")
 
     lineas.extend(CODIGO)
 

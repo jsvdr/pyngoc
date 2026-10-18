@@ -122,90 +122,57 @@ def _filas_print(valor: int) -> list[tuple[str, str, str]]:
     return generar_codigo_intermedio(tabla, lista_tokens)
 
 
-def test_print_codigo_3() -> None:
-    filas = _filas_print(3)
-
-    assert ("", "MOV", "AX, 3") in filas
-    assert ("", "MOV", "AX, x") in filas
-
-    # Caso cero imprime '0' (48).
-    assert ("", "MOV", "DL, 48") in filas
-
-    # División entre 10.
-    assert ("", "MOV", "BX, 10") in filas
-    assert ("", "MOV", "DX, 0") in filas
-    assert ("", "DIV", "BX") in filas
-    assert ("", "PUSH", "DX") in filas
-    assert ("", "INC", "CX") in filas
-
-    # Conversión a ASCII e impresión.
-    assert ("", "POP", "DX") in filas
-    assert ("", "ADD", "DL, 48") in filas
-    assert ("", "MOV", "AH, 02H") in filas
-    assert ("", "INT", "21H") in filas
-
-    # LOOP para imprimir todos los dígitos.
-    assert any(f[1] == "LOOP" for f in filas)
-
-    # Orden: POP -> ADD DL,48 -> INT 21H.
-    idx_pop = [i for i, f in enumerate(filas) if f == ("", "POP", "DX")][0]
-    idx_add = [i for i, f in enumerate(filas) if f == ("", "ADD", "DL, 48")][0]
-    # INT 21H de impresión: el que aparece después del POP.
-    idx_int = [
-        i for i, f in enumerate(filas) if f == ("", "INT", "21H") and i > idx_pop
-    ][0]
-    assert idx_pop < idx_add < idx_int
-
-    # Sin variables COC/RESI.
-    assert all(nombre not in ("COC", "RESI") for nombre, _, _ in filas)
-
-
-def test_print_codigo_42() -> None:
+def test_print_usa_coc_y_resi() -> None:
     filas = _filas_print(42)
 
-    assert ("", "MOV", "AX, 42") in filas
-    assert ("", "MOV", "AX, x") in filas
+    assert filas == [
+        ("", "TITLE", "Pyngo"),
+        ("", ".MODEL", "Small"),
+        ("", ".486", ""),
+        ("", ".STACK", ""),
+        ("", "", ""),
+        ("", ".DATA", ""),
+        ("x", "DW", "?"),
+        ("COC", "DB", "?"),
+        ("RESI", "DB", "?"),
+        ("", "", ""),
+        ("", ".CODE", ""),
+        ("MAIN", "PROC", "FAR"),
+        ("", ".STARTUP", ""),
+        ("", "", ""),
+        ("", "MOV", "AX, 42"),
+        ("", "MOV", "x, AX"),
+        ("", "MOV", "AX, x"),
+        ("", "MOV", "DL, 10"),
+        ("", "DIV", "DL"),
+        ("", "MOV", "COC, AL"),
+        ("", "MOV", "RESI, AH"),
+        ("", "MOV", "DL, COC"),
+        ("", "ADD", "DL, 30H"),
+        ("", "MOV", "AH, 02H"),
+        ("", "INT", "21H"),
+        ("", "MOV", "DL, RESI"),
+        ("", "ADD", "DL, 30H"),
+        ("", "MOV", "AH, 02H"),
+        ("", "INT", "21H"),
+        ("", "", ""),
+        ("", ".EXIT", ""),
+        ("MAIN", "ENDP", ""),
+        ("", "", ""),
+        ("", "END", ""),
+    ]
 
-    assert ("", "MOV", "BX, 10") in filas
-    assert ("", "DIV", "BX") in filas
-    assert ("", "PUSH", "DX") in filas
-    assert ("", "POP", "DX") in filas
-    assert ("", "ADD", "DL, 48") in filas
-    assert ("", "MOV", "AH, 02H") in filas
-    assert ("", "INT", "21H") in filas
-    assert any(f[1] == "LOOP" for f in filas)
 
-    idx_pop = [i for i, f in enumerate(filas) if f == ("", "POP", "DX")][0]
-    idx_add = [i for i, f in enumerate(filas) if f == ("", "ADD", "DL, 48")][0]
-    # INT 21H de impresión: el que aparece después del POP.
-    idx_int = [
-        i for i, f in enumerate(filas) if f == ("", "INT", "21H") and i > idx_pop
-    ][0]
-    assert idx_pop < idx_add < idx_int
+def test_sin_print_no_declara_coc_ni_resi() -> None:
+    fuente = "{ int x = 1; }"
 
+    lista_tokens, _ = analizar_lexico(fuente)
 
-def test_print_codigo_12345() -> None:
-    filas = _filas_print(12345)
+    _, _, tabla = compilar_hasta_semantico(fuente)
 
-    assert ("", "MOV", "AX, 12345") in filas
-    assert ("", "MOV", "AX, x") in filas
+    filas = generar_codigo_intermedio(tabla, lista_tokens)
 
-    assert ("", "MOV", "BX, 10") in filas
-    assert ("", "DIV", "BX") in filas
-    assert ("", "PUSH", "DX") in filas
-    assert ("", "POP", "DX") in filas
-    assert ("", "ADD", "DL, 48") in filas
-    assert ("", "MOV", "AH, 02H") in filas
-    assert ("", "INT", "21H") in filas
-    assert any(f[1] == "LOOP" for f in filas)
-
-    idx_pop = [i for i, f in enumerate(filas) if f == ("", "POP", "DX")][0]
-    idx_add = [i for i, f in enumerate(filas) if f == ("", "ADD", "DL, 48")][0]
-    # INT 21H de impresión: el que aparece después del POP.
-    idx_int = [
-        i for i, f in enumerate(filas) if f == ("", "INT", "21H") and i > idx_pop
-    ][0]
-    assert idx_pop < idx_add < idx_int
+    assert all(nombre not in ("COC", "RESI") for nombre, _, _ in filas)
 
 
 def _filas(fuente: str) -> list[tuple[str, str, str]]:

@@ -71,7 +71,8 @@ encadenar operaciones del mismo nivel:
 - `while (a < b) { ... }` → etiqueta al inicio, `CMP` + salto, `JMP` de vuelta
 - los `bool` son `DB`: se cargan con `MOV AL` + `MOV AH, 0` y se comparan con `CMP AL`
 - `print(x)` parte el valor en `COC` (decenas) y `RESI` (unidades) y los imprime
-  con `INT 21H` / `AH=02H`
+  con `INT 21H` / `AH=02H`; un literal fuera de 0–99 se rechaza con un error
+  claro, porque la plantilla imprime 2 cifras
 
 Si hiciera falta la pila (por ejemplo `a @ b & c` o `( a @ b )`), el botón CI
 muestra un error claro en vez de generar código.

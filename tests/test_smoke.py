@@ -183,6 +183,27 @@ def _filas(fuente: str) -> list[tuple[str, str, str]]:
     return generar_codigo_intermedio(tabla, lista_tokens)
 
 
+def test_intermedio_rechaza_print_literal_fuera_de_rango() -> None:
+    # El print del profe imprime 2 cifras: 200 saldría "D0".
+    with pytest.raises(ErrorIntermedio) as error:
+        _filas("{ print ( 200 ); }")
+
+    assert str(error.value) == "El print solo imprime de 0 a 99, y el valor es 200."
+
+
+def test_intermedio_acepta_print_de_dos_cifras() -> None:
+    filas = _filas("{ print ( 99 ); }")
+
+    assert ("", "MOV", "AX, 99") in filas
+
+
+def test_intermedio_no_confunde_un_primer_operando_grande() -> None:
+    # 200 # 100 da 100, que sí entra en 2 cifras: no se rechaza.
+    filas = _filas("{ print ( 200 # 100 ); }")
+
+    assert ("", "MOV", "AX, 200") in filas
+
+
 def test_intermedio_cuatro_operadores() -> None:
     filas = _filas(
         "{ int a = 1; int b = 2; int c = a @ b; int d = a # b; "

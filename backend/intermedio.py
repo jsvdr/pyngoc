@@ -258,6 +258,20 @@ class Generador:
         self.avanzar_si_es(TokenKind.PRINT)
         self.avanzar_si_es(TokenKind.LPAREN)
 
+        # El print del profe parte el número en 2 cifras, así que un literal de
+        # 100 en adelante imprimiría basura (200 -> "D0"). Si el argumento es un
+        # literal suelto fuera de rango, se avisa en vez de generar mentiras.
+        if (
+            self.token_actual_es(TokenKind.NUM)
+            and self.tokens[self.posicion + 1].kind == TokenKind.RPAREN
+        ):
+            valor = int(self.token_actual().lexeme)
+
+            if valor > 99:
+                raise ErrorIntermedio(
+                    f"El print solo imprime de 0 a 99, y el valor es {valor}."
+                )
+
         self.expresion()
 
         self.avanzar_si_es(TokenKind.RPAREN)

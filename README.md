@@ -1,7 +1,7 @@
 # Pyngo — compilador didáctico
 
 Compilador por fases (scanner → parser → semántico → código intermedio)
-para un lenguaje propio con `int`/`bool`, `if`/`print` y operadores
+para un lenguaje propio con `int`/`bool`, `if`/`for`/`print` y operadores
 `@ # & | == > <`. Backend en Flask, frontend vanilla, sin dependencias de más.
 Código simple a propósito: se lee de arriba a abajo, sin AST.
 
@@ -53,6 +53,7 @@ encadenar operaciones del mismo nivel:
 
 - `a @ b @ c` → `ADD AX, b` / `ADD AX, c`
 - `a & b | c` → `MUL BX` / `DIV BX`
+- `for (a < b) { ... }` → etiqueta al inicio, `CMP` + salto, `JMP` de vuelta
 - `print(x)` cubre enteros de 0 a 65535 con `INT 21H` / `AH=02H`
 
 Si hiciera falta la pila (por ejemplo `a @ b & c` o `( a @ b )`), el botón CI

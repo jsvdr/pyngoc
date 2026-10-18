@@ -207,20 +207,20 @@ def test_intermedio_if_con_etiquetas() -> None:
 
     # Condición: MOV AX, a / CMP AX, b / salto si falso (a < b -> JGE).
     assert ("", "CMP", "AX, b") in filas
-    assert ("", "JGE", "ETQ1") in filas
+    assert ("", "JGE", "IF_FALSO_1") in filas
 
     # Rama verdadera, salto al fin, etiqueta else, rama falsa, etiqueta fin.
     assert ("", "MOV", "m, AX") in filas
-    assert ("", "JMP", "ETQ2") in filas
-    assert ("ETQ1:", "", "") in filas
-    assert ("ETQ2:", "", "") in filas
+    assert ("", "JMP", "IF_FIN_2") in filas
+    assert ("IF_FALSO_1:", "", "") in filas
+    assert ("IF_FIN_2:", "", "") in filas
 
     # El salto condicional va antes de la rama verdadera, y el else antes del fin.
     idx_cmp = filas.index(("", "CMP", "AX, b"))
-    idx_salto = filas.index(("", "JGE", "ETQ1"))
+    idx_salto = filas.index(("", "JGE", "IF_FALSO_1"))
     idx_verdad = filas.index(("", "MOV", "AX, b"))
-    idx_else = filas.index(("ETQ1:", "", ""))
-    idx_fin = filas.index(("ETQ2:", "", ""))
+    idx_else = filas.index(("IF_FALSO_1:", "", ""))
+    idx_fin = filas.index(("IF_FIN_2:", "", ""))
     assert idx_cmp < idx_salto < idx_verdad < idx_else < idx_fin
 
 
@@ -228,20 +228,20 @@ def test_intermedio_while_con_etiquetas() -> None:
     filas = _filas("{ int i = 0; while (i < 3) { i = i @ 1; }; }")
 
     # El while prueba la condición al inicio y repite mientras sea cierta.
-    assert ("ETQ1:", "", "") in filas
+    assert ("WHILE_INICIO_1:", "", "") in filas
     assert ("", "CMP", "AX, 3") in filas
-    assert ("", "JGE", "ETQ2") in filas
+    assert ("", "JGE", "WHILE_FIN_2") in filas
 
     # Cuerpo y salto de vuelta al inicio.
     assert ("", "ADD", "AX, 1") in filas
-    assert ("", "JMP", "ETQ1") in filas
-    assert ("ETQ2:", "", "") in filas
+    assert ("", "JMP", "WHILE_INICIO_1") in filas
+    assert ("WHILE_FIN_2:", "", "") in filas
 
-    idx_inicio = filas.index(("ETQ1:", "", ""))
+    idx_inicio = filas.index(("WHILE_INICIO_1:", "", ""))
     idx_cmp = filas.index(("", "CMP", "AX, 3"))
-    idx_salto = filas.index(("", "JGE", "ETQ2"))
-    idx_vuelta = filas.index(("", "JMP", "ETQ1"))
-    idx_fin = filas.index(("ETQ2:", "", ""))
+    idx_salto = filas.index(("", "JGE", "WHILE_FIN_2"))
+    idx_vuelta = filas.index(("", "JMP", "WHILE_INICIO_1"))
+    idx_fin = filas.index(("WHILE_FIN_2:", "", ""))
     assert idx_inicio < idx_cmp < idx_salto < idx_vuelta < idx_fin
 
 
@@ -352,7 +352,7 @@ def test_intermedio_if_con_bool_usa_al() -> None:
     filas = _filas("{ bool p = false; if (p) { print ( 1 ); }; }")
 
     # La condición queda completa en AX (0 o 1) y recién ahí se compara con 0.
-    indice_salto = filas.index(("", "JE", "ETQ1"))
+    indice_salto = filas.index(("", "JE", "IF_FALSO_1"))
 
     assert filas[indice_salto - 1] == ("", "CMP", "AX, 0")
     assert filas[indice_salto - 2] == ("", "MOV", "AH, 0")

@@ -193,7 +193,7 @@ class Generador:
 
     # IF → if EXPRESION { LISTA_DECL } [ else { LISTA_DECL } ]
     def if_stmt(self) -> None:
-        etiqueta_else = self.nueva_etiqueta()
+        etiqueta_else = self.nueva_etiqueta("IF_FALSO")
 
         self.avanzar_si_es(TokenKind.IF)
         self.avanzar_si_es(TokenKind.LPAREN)
@@ -208,7 +208,7 @@ class Generador:
         self.avanzar_si_es(TokenKind.RBRACE)
 
         if self.token_actual_es(TokenKind.ELSE):
-            etiqueta_fin = self.nueva_etiqueta()
+            etiqueta_fin = self.nueva_etiqueta("IF_FIN")
 
             self.avanzar()
 
@@ -229,8 +229,8 @@ class Generador:
     # WHILE → while EXPRESION { LISTA_DECL }
     # Prueba la condición antes de cada vuelta: si sigue siendo cierta, repite.
     def while_stmt(self) -> None:
-        etiqueta_inicio = self.nueva_etiqueta()
-        etiqueta_fin = self.nueva_etiqueta()
+        etiqueta_inicio = self.nueva_etiqueta("WHILE_INICIO")
+        etiqueta_fin = self.nueva_etiqueta("WHILE_FIN")
 
         self.etiqueta(etiqueta_inicio)
 
@@ -442,9 +442,10 @@ class Generador:
     def etiqueta(self, nombre: str) -> None:
         self.lineas.append(f"{nombre}:")
 
-    def nueva_etiqueta(self) -> str:
+    # Una etiqueta con nombre legible: IF_FIN_2, WHILE_INICIO_1, ...
+    def nueva_etiqueta(self, prefijo: str) -> str:
         self.numero_etiqueta += 1
-        return f"ETQ{self.numero_etiqueta}"
+        return f"{prefijo}_{self.numero_etiqueta}"
 
     def avanzar_si_es(self, kind_esperado: TokenKind) -> None:
         if self.token_actual_es(kind_esperado):

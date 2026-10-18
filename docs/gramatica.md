@@ -7,13 +7,12 @@ y en `semantico.py`.
 PROGRAMA    → { LISTA_DECL }
 LISTA_DECL  → [ DECL ; ]*
 
-DECL        → DECL_VAR | ASIGNACION | IF | FOR | PRINT
+DECL        → DECL_VAR | ASIGNACION | IF | PRINT
 
 DECL_VAR    → TIPO_DATO ID = EXPRESION
 ASIGNACION  → ID = EXPRESION
 
 IF          → if EXPRESION { LISTA_DECL } [ else { LISTA_DECL } ]
-FOR         → for EXPRESION { LISTA_DECL }
 PRINT       → print ( EXPRESION )
 
 TIPO_DATO   → int | bool
@@ -32,5 +31,5 @@ BOOL        → true | false
 @ # & |  →  int, int → int
 ==       →  mismo tipo → bool
 > <      →  int, int → bool
-if/for   →  la condición debe ser bool
+if       →  la condición debe ser bool
 ```

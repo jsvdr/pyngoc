@@ -114,7 +114,7 @@ class Generador:
 
             self.avanzar_si_es(TokenKind.SEMICOLON)
 
-    # DECL → DECL_VAR | ASIGNACION | IF | FOR | PRINT
+    # DECL → DECL_VAR | ASIGNACION | IF | PRINT
     def decl(self) -> None:
         if self.token_actual_es(TokenKind.INT) or self.token_actual_es(TokenKind.BOOL):
             self.decl_var()
@@ -126,10 +126,6 @@ class Generador:
 
         if self.token_actual_es(TokenKind.IF):
             self.if_stmt()
-            return
-
-        if self.token_actual_es(TokenKind.FOR):
-            self.for_stmt()
             return
 
         if self.token_actual_es(TokenKind.PRINT):
@@ -257,60 +253,6 @@ class Generador:
 
         else:
             self.etiqueta(etiqueta_else)
-
-    # FOR → for EXPRESION { LISTA_DECL }
-    # La gramática no trae inicio ni paso, así que es un while.
-    def for_stmt(self) -> None:
-        etiqueta_inicio = self.nueva_etiqueta()
-        etiqueta_fin = self.nueva_etiqueta()
-
-        self.etiqueta(etiqueta_inicio)
-
-        self.avanzar_si_es(TokenKind.FOR)
-
-        if self.es_comparacion_simple():
-            if self.token_actual_es(TokenKind.LPAREN):
-                self.avanzar()
-
-            izquierda = self.valor_factor(self.token_actual())
-
-            self.avanzar()
-
-            operador = self.token_actual().kind
-
-            self.avanzar()
-
-            derecha = self.valor_factor(self.token_actual())
-
-            self.avanzar()
-
-            if self.token_actual_es(TokenKind.RPAREN):
-                self.avanzar()
-
-            self.emitir("MOV", f"AX, {izquierda}")
-            self.emitir("CMP", f"AX, {derecha}")
-
-            if operador == TokenKind.LESS:
-                self.emitir("JGE", etiqueta_fin)
-            elif operador == TokenKind.GREATER:
-                self.emitir("JLE", etiqueta_fin)
-            else:
-                self.emitir("JNE", etiqueta_fin)
-
-        else:
-            self.expresion()
-
-            self.emitir("CMP", "AX, 0")
-            self.emitir("JE", etiqueta_fin)
-
-        self.avanzar_si_es(TokenKind.LBRACE)
-
-        self.lista_decl()
-
-        self.avanzar_si_es(TokenKind.RBRACE)
-
-        self.emitir("JMP", etiqueta_inicio)
-        self.etiqueta(etiqueta_fin)
 
     # PRINT → print ( EXPRESION )
     # Imprime cualquier entero no negativo 0..65535 con INT 21H / AH=02H.

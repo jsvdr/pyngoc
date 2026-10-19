@@ -1,5 +1,7 @@
 # Pyngo — compilador didáctico
 
+[![CI](https://github.com/jsvdr/pyngoc/actions/workflows/ci.yml/badge.svg)](https://github.com/jsvdr/pyngoc/actions/workflows/ci.yml)
+
 Compilador por fases (scanner → parser → semántico → código intermedio)
 para un lenguaje propio con `int`/`bool`, `if`/`while`/`print` y operadores
 `@ # & | == > <`. Backend en Flask, frontend vanilla, sin dependencias de más.
@@ -7,6 +9,22 @@ Código simple a propósito: se lee de arriba a abajo, sin AST.
 
 La gramática del lenguaje está en [`docs/gramatica.md`](docs/gramatica.md)
 y el catálogo de errores en [`docs/errores.md`](docs/errores.md).
+
+## Arquitectura
+
+```mermaid
+flowchart LR
+    F["Fuente"] --> T["scanner.py<br/>tokens"]
+    T --> P["parser.py<br/>sintaxis"]
+    P --> S["semantico.py<br/>tipos + tabla de símbolos"]
+    S --> I["intermedio.py<br/>TASM en 3 columnas"]
+    I --> G["GUI<br/>panel de la fase"]
+```
+
+Las fases están encadenadas: cada una recibe lo que dejó la anterior y no
+comparten estado. Cada botón de la GUI (`/analizar`, `/parser`, `/semantico`,
+`/intermedio`) re-corre las fases previas desde el fuente; si una falla, la que
+sigue no se ejecuta.
 
 ## Estado
 
@@ -76,6 +94,32 @@ encadenar operaciones del mismo nivel:
 
 Si hiciera falta la pila (por ejemplo `a @ b & c` o `( a @ b )`), el botón CI
 muestra un error claro en vez de generar código.
+
+## Decisiones técnicas
+
+- **Sin AST.** El parser solo valida; el semántico y el generador copian su
+  forma (mismo esqueleto, mismo orden). El precio es recorrer los tokens otra
+  vez al generar; a cambio, no hay un árbol que mantener para un solo
+  consumidor. Si el optimizador lo pide, se reabre la decisión.
+- **Registros, no pila.** Todo se calcula en `AX` (un solo acumulador). Por eso
+  solo se admiten operandos simples y operaciones del mismo nivel: si una
+  expresión necesitara dos valores vivos a la vez, se muestra un error
+  (`ErrorIntermedio`) en vez de generar código mal.
+- **Los `bool` son `DB`** (1 byte, regla del profe): se cargan con `MOV AL` +
+  `MOV AH, 0` y se comparan con `CMP AL`, así `AX` siempre vale 0 o 1 completo.
+- **Las comparaciones son un valor.** `== > <` dejan 0/1 en `AX` con `SETcc` +
+  `MOV AH, 0` (por eso existe `bool c = a == b`); en una condición se emite el
+  salto negado (`<` → `JGE`).
+- **El `print` usa la plantilla de 2 cifras** del handout (`DIV DL` parte el
+  número: decenas en `COC`, unidades en `RESI`). Es correcto de 0 a 99; un
+  literal fuera de rango se rechaza con un mensaje claro.
+- **Los mensajes son fijos** (`Syntax OK`, `Semantic OK`,
+  `Línea X: ERROR DE TIPOS: ...`): los tests los comparan exactos, así que no se
+  reformulan.
+- **El dominio va en castellano** (`tabla`, `linea`, `decl_var`); Flask, JS y
+  TASM quedan en inglés porque es vocabulario técnico.
+- **Sin dependencias de ejecución** más que Flask: `ruff`, `pyright` y `pytest`
+  son de desarrollo (`requirements-dev.txt`).
 
 ## Ejemplo para probar
 

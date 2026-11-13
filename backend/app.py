@@ -353,6 +353,7 @@ def generar_objeto() -> Response | tuple[Response, int]:
 
 
 # El panel tiene que avisar que no se puede generar y mostrar por qué.
+# Los errores concretos van primero para que se lean; el aviso, al final.
 def respuesta_sin_objeto(lista_errores: list[str]) -> Response:
     return jsonify(
         {
@@ -360,8 +361,8 @@ def respuesta_sin_objeto(lista_errores: list[str]) -> Response:
             "datos": [],
             "codigo": [],
             "errores": [
-                "No se puede generar código objeto.",
                 *lista_errores,
+                "No se puede generar código objeto.",
             ],
         }
     )

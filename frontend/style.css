@@ -313,15 +313,13 @@ textarea {
 .co-panel {
   position: fixed;
 
-  left: 50%;
+  right: 20px;
   bottom: 90px;
-
-  transform: translateX(-50%);
 
   z-index: 10;
 
-  width: min(1500px, calc(100vw - 40px));
-  height: min(70vh, 700px);
+  width: min(1600px, calc(100vw - 40px));
+  height: min(75vh, 760px);
 
   display: flex;
   flex-direction: column;
@@ -403,26 +401,27 @@ textarea {
 }
 
 
-.co-cuerpo {
+/* Con errores, que se vean bien: no es solo un renglón perdido. */
+.co-error:not(:empty) {
+  padding: 10px 12px;
+
+  border-left: 4px solid #cc0000;
+
+  background-color: #fdecea;
+
+  border-radius: 4px;
+}
+
+
+/* Igual que el contenedor del CI: un solo recuadro blanco con scroll. */
+.co-tabla-contenedor {
   flex: 1;
 
   min-height: 0;
 
   display: flex;
 
-  gap: 15px;
-}
-
-
-/* Cada mitad tiene su propio encabezado y su propio scroll. */
-.co-seccion {
-  flex: 1;
-
-  min-width: 0;
-
-  overflow: auto;
-
-  padding: 15px;
+  overflow: hidden;
 
   background-color: white;
 
@@ -430,16 +429,28 @@ textarea {
 }
 
 
-.co-seccion h3 {
+/* Cada mitad tiene su propio encabezado y su propio scroll. */
+.co-grupo {
+  flex: 1;
+
+  min-width: 0;
+
+  overflow: auto;
+
+  padding: 15px;
+}
+
+
+.co-grupo h3 {
   margin: 0 0 10px;
 
   font-size: 18px;
 }
 
 
-/* Separador vertical entre DATOS y CÓDIGO. */
-.co-seccion + .co-seccion {
-  border-left: 3px solid #1f6aa5;
+/* Separador vertical entre DATOS y CÓDIGO, como el borde del CI. */
+.co-grupo + .co-grupo {
+  border-left: 2px solid #999;
 }
 
 
@@ -453,7 +464,7 @@ textarea {
     "Courier New",
     monospace;
 
-  font-size: 16px;
+  font-size: 18px;
 
   line-height: 1.6;
 
@@ -475,6 +486,13 @@ textarea {
 
 .tabla-co th {
   border-bottom: 2px solid #999;
+}
+
+
+/* CONTENIDO se queda con todo el ancho sobrante: es la parte más grande. */
+.tabla-co th:nth-child(2),
+.tabla-co td:nth-child(2) {
+  width: 100%;
 }
 
 
@@ -500,15 +518,15 @@ textarea {
   }
 
 
-  .co-cuerpo {
+  .co-tabla-contenedor {
     flex-direction: column;
   }
 
 
-  .co-seccion + .co-seccion {
+  .co-grupo + .co-grupo {
     border-left: none;
 
-    border-top: 3px solid #1f6aa5;
+    border-top: 2px solid #999;
   }
 
 }

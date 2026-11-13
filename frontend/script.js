@@ -7,6 +7,12 @@ const btnParser = document.getElementById("btnParser");
 const btnSemantico = document.getElementById("btnSemantico");
 const btnCI = document.getElementById("btnCI");
 const cajaArchivo = document.getElementById("fileInput");
+const btnCO = document.getElementById("btnCO");
+const panelCO = document.getElementById("panelCO");
+const btnCerrarCO = document.getElementById("btnCerrarCO");
+const cuerpoDatosCO = document.getElementById("cuerpoDatosCO");
+const cuerpoCodigoCO = document.getElementById("cuerpoCodigoCO");
+const errorCO = document.getElementById("errorCO");
 
 // ==================================
 // COLORES Y LIMPIEZA
@@ -187,4 +193,67 @@ btnCI.addEventListener("click", async function () {
     cajaErrores.value = "Error al generar el código intermedio.";
     cajaErrores.style.color = COLOR_ERROR;
   }
+});
+
+// ==================================
+// CÓDIGO OBJETO
+// ==================================
+
+// Cada fase limpia solo lo suyo: el panel CO no toca los demás paneles.
+function limpiarObjeto() {
+  cuerpoDatosCO.innerHTML = "";
+  cuerpoCodigoCO.innerHTML = "";
+  errorCO.textContent = "";
+}
+
+// Una fila por variable (DATOS) o por instrucción (CÓDIGO).
+function pintarTablaCO(cuerpo, filas) {
+  for (const fila of filas) {
+    const renglon = document.createElement("tr");
+
+    // El tooltip muestra la instrucción o la variable completa.
+    renglon.title = fila.texto;
+
+    for (const campo of [fila.direccion, fila.contenido, fila.hex]) {
+      const celda = document.createElement("td");
+      celda.textContent = campo;
+      renglon.appendChild(celda);
+    }
+
+    cuerpo.appendChild(renglon);
+  }
+}
+
+btnCO.addEventListener("click", async function () {
+  panelCO.hidden = false;
+  limpiarObjeto();
+
+  try {
+    const respuesta = await fetch("/objeto", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        codigo: cajaCodigo.value,
+      }),
+    });
+    const datos = await respuesta.json();
+
+    if (!datos.ok) {
+      const listaErrores = datos.errores || ["No se pudo generar el código objeto."];
+      errorCO.textContent = listaErrores.join("\n");
+      return;
+    }
+
+    pintarTablaCO(cuerpoDatosCO, datos.datos);
+    pintarTablaCO(cuerpoCodigoCO, datos.codigo);
+  } catch (fallo) {
+    console.error(fallo);
+    errorCO.textContent = "Error al generar el código objeto.";
+  }
+});
+
+btnCerrarCO.addEventListener("click", function () {
+  panelCO.hidden = true;
 });

@@ -274,6 +274,210 @@ textarea {
 }
 
 
+/* ==================================
+   CÓDIGO OBJETO
+   ================================== */
+
+.co-button {
+  position: fixed;
+
+  right: 20px;
+  bottom: 20px;
+
+  z-index: 11;
+
+  width: 70px;
+  height: 70px;
+
+  border: none;
+  border-radius: 50%;
+
+  background-color: #1f6aa5;
+
+  color: white;
+
+  font-size: 22px;
+  font-weight: bold;
+
+  cursor: pointer;
+
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+
+.co-button:hover {
+  background-color: #144d75;
+}
+
+
+.co-panel {
+  position: fixed;
+
+  left: 50%;
+  bottom: 90px;
+
+  transform: translateX(-50%);
+
+  z-index: 10;
+
+  width: min(1500px, calc(100vw - 40px));
+  height: min(70vh, 700px);
+
+  display: flex;
+  flex-direction: column;
+
+  padding: 15px;
+
+  background-color: #e0e0e0;
+
+  border-radius: 10px;
+
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+}
+
+
+/* El atributo hidden le gana al display: flex. */
+.co-panel[hidden] {
+  display: none;
+}
+
+
+.co-panel-header {
+  display: flex;
+
+  justify-content: space-between;
+  align-items: center;
+
+  gap: 10px;
+
+  flex-shrink: 0;
+}
+
+
+.co-panel-header h2 {
+  margin: 0;
+}
+
+
+.co-close {
+  border: none;
+
+  background: transparent;
+
+  color: #111;
+
+  font-size: 32px;
+
+  line-height: 1;
+
+  cursor: pointer;
+}
+
+
+.co-close:hover {
+  color: #cc0000;
+}
+
+
+.co-error {
+  flex-shrink: 0;
+
+  margin-bottom: 10px;
+
+  color: #cc0000;
+
+  font-family:
+    Consolas,
+    "Courier New",
+    monospace;
+
+  font-size: 18px;
+
+  white-space: pre-wrap;
+}
+
+
+/* Sin texto no ocupa lugar. */
+.co-error:empty {
+  display: none;
+}
+
+
+.co-cuerpo {
+  flex: 1;
+
+  min-height: 0;
+
+  display: flex;
+
+  gap: 15px;
+}
+
+
+/* Cada mitad tiene su propio encabezado y su propio scroll. */
+.co-seccion {
+  flex: 1;
+
+  min-width: 0;
+
+  overflow: auto;
+
+  padding: 15px;
+
+  background-color: white;
+
+  border-radius: 6px;
+}
+
+
+.co-seccion h3 {
+  margin: 0 0 10px;
+
+  font-size: 18px;
+}
+
+
+/* Separador vertical entre DATOS y CÓDIGO. */
+.co-seccion + .co-seccion {
+  border-left: 3px solid #1f6aa5;
+}
+
+
+.tabla-co {
+  width: 100%;
+
+  border-collapse: collapse;
+
+  font-family:
+    Consolas,
+    "Courier New",
+    monospace;
+
+  font-size: 16px;
+
+  line-height: 1.6;
+
+  color: #111;
+}
+
+
+.tabla-co th,
+.tabla-co td {
+  padding: 2px 8px;
+
+  text-align: left;
+
+  vertical-align: top;
+
+  white-space: nowrap;
+}
+
+
+.tabla-co th {
+  border-bottom: 2px solid #999;
+}
+
+
 @media (max-width: 1100px) {
 
   .app {
@@ -293,6 +497,18 @@ textarea {
     grid-row: auto;
 
     min-height: 400px;
+  }
+
+
+  .co-cuerpo {
+    flex-direction: column;
+  }
+
+
+  .co-seccion + .co-seccion {
+    border-left: none;
+
+    border-top: 3px solid #1f6aa5;
   }
 
 }

@@ -2,10 +2,10 @@
 
 [![CI](https://github.com/jsvdr/pyngoc/actions/workflows/ci.yml/badge.svg)](https://github.com/jsvdr/pyngoc/actions/workflows/ci.yml)
 
-Compilador por fases (scanner → parser → semántico → código intermedio)
-para un lenguaje propio con `int`/`bool`, `if`/`while`/`print` y operadores
-`@ # & | == > <`. Backend en Flask, frontend vanilla, sin dependencias de más.
-Código simple a propósito: se lee de arriba a abajo, sin AST.
+Compilador por fases (scanner → parser → semántico → código intermedio →
+código objeto x86) para un lenguaje propio con `int`/`bool`, `if`/`while`/`print`
+y operadores `@ # & | == > <`. Backend en Flask, frontend vanilla, sin
+dependencias de más. Código simple a propósito: se lee de arriba a abajo, sin AST.
 
 La gramática del lenguaje está en [`docs/gramatica.md`](docs/gramatica.md)
 y el catálogo de errores en [`docs/errores.md`](docs/errores.md).
@@ -18,13 +18,15 @@ flowchart LR
     T --> P["parser.py<br/>sintaxis"]
     P --> S["semantico.py<br/>tipos + tabla de símbolos"]
     S --> I["intermedio.py<br/>TASM en 3 columnas"]
+    S --> O["objeto.py<br/>x86 16 bits"]
     I --> G["GUI<br/>panel de la fase"]
+    O --> G
 ```
 
 Las fases están encadenadas: cada una recibe lo que dejó la anterior y no
 comparten estado. Cada botón de la GUI (`/analizar`, `/parser`, `/semantico`,
-`/intermedio`) re-corre las fases previas desde el fuente; si una falla, la que
-sigue no se ejecuta.
+`/intermedio`, `/objeto`) re-corre las fases previas desde el fuente; si una
+falla, la que sigue no se ejecuta.
 
 ## Estado
 
@@ -35,7 +37,7 @@ sigue no se ejecuta.
 | Semántico | ✅ |
 | Código intermedio (TASM) | ✅ |
 | Optimizador | ⏳ por definir |
-| Código máquina | ⏳ por definir |
+| Código objeto (x86 16 bits) | ✅ (bytes verificados con tests, sin emulador) |
 
 ## Cómo correrlo (Python 3.12)
 
@@ -74,6 +76,7 @@ pyright
 | Parser | `POST /parser` | `Syntax OK` |
 | Semántico | `POST /semantico` | `Semantic OK` |
 | CI | `POST /intermedio` | tabla Nombre/Operador/Atributo |
+| CO | `POST /objeto` | tablas DATOS y CÓDIGO (DIR/CONTENIDO/HEX) |
 
 ## Código intermedio (CI)
 
@@ -94,6 +97,36 @@ encadenar operaciones del mismo nivel:
 
 Si hiciera falta la pila (por ejemplo `a @ b & c` o `( a @ b )`), el botón CI
 muestra un error claro en vez de generar código.
+
+## Código objeto (CO)
+
+El botón flotante **CO** abre un panel con dos tablas: **DATOS** (las variables)
+y **CÓDIGO** (las instrucciones). Cada fila muestra `DIR | CONTENIDO | HEX`:
+
+- `DIR` va en binario (16 bits en cuatro nibbles): `0010 0000 0000 0000`.
+- `CONTENIDO` sale de los bytes reales, en nibbles: `1010 0001  0000 0010  0010 0000`.
+- `HEX` son los mismos bytes en orden de memoria: `A1 02 20`.
+- El tooltip de cada renglón dice la instrucción completa (`MOV AX,[2002h]`).
+
+Convenciones: `DATA_BASE = 2000h` (2 bytes por variable, `00 00`),
+`CODE_BASE = 0000h`, W = 1, little endian, complemento a 2. Las variables se
+direccionan en forma directa (mod 00, r/m 110). El código termina en `HLT` y la
+rutina `print` es por ahora un `RET`, así que el binario todavía no imprime.
+
+`codificador.py` guarda las variantes en tablas (MOV, ADD/SUB/CMP, MUL/DIV,
+saltos y pila) y arma el ModR/M. `objeto.py` recorre los tokens con la misma
+forma que el parser y emite instrucciones. Los saltos se arman en dos pasadas:
+si el relativo no entra en −128..127, se promueven a cercanos (`E9` o `0F 8x`).
+
+Ejemplo (`x` en 2000h, `y` en 2002h):
+
+```text
+x = y & 3;   → A1 02 20 · BB 03 00 · F7 E3 · A3 00 20
+x = y | 3;   → A1 02 20 · BB 03 00 · BA 00 00 · F7 F3 · A3 00 20
+```
+
+Los bytes están verificados contra las tablas con tests unitarios. **No** se
+verificó la ejecución: en esta máquina no hay DOSBox ni un emulador i8086.
 
 ## Decisiones técnicas
 
@@ -134,8 +167,9 @@ muestra un error claro en vez de generar código.
 ## Estructura
 
 ```text
-backend/   tokens.py scanner.py parser.py semantico.py intermedio.py app.py
+backend/   tokens.py scanner.py parser.py semantico.py intermedio.py
+           codificador.py objeto.py app.py
 frontend/  index.html script.js style.css
-tests/     test_smoke.py (casos de humo)
+tests/     test_smoke.py test_codificador.py test_objeto.py
 docs/      gramatica.md errores.md
 ```

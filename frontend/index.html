@@ -100,6 +100,77 @@
 
   </main>
 
+
+  <!-- BOTÓN FLOTANTE DE CÓDIGO OBJETO -->
+  <button id="btnCO" class="co-button" title="Generar código objeto">
+    CO
+  </button>
+
+
+  <!-- PANEL CÓDIGO OBJETO -->
+  <section id="panelCO" class="co-panel" hidden>
+
+    <div class="co-panel-header">
+
+      <h2>Código Objeto</h2>
+
+      <button id="btnCerrarCO" class="co-close" title="Cerrar">
+        ×
+      </button>
+
+    </div>
+
+    <div id="errorCO" class="co-error"></div>
+
+    <div class="co-cuerpo">
+
+      <!-- DATOS -->
+      <section class="co-seccion">
+
+        <h3>DATOS</h3>
+
+        <table class="tabla-co">
+
+          <thead>
+            <tr>
+              <th>DIR</th>
+              <th>CONTENIDO</th>
+              <th>HEX</th>
+            </tr>
+          </thead>
+
+          <tbody id="cuerpoDatosCO"></tbody>
+
+        </table>
+
+      </section>
+
+
+      <!-- CÓDIGO -->
+      <section class="co-seccion">
+
+        <h3>CÓDIGO</h3>
+
+        <table class="tabla-co">
+
+          <thead>
+            <tr>
+              <th>DIR</th>
+              <th>CONTENIDO</th>
+              <th>HEX</th>
+            </tr>
+          </thead>
+
+          <tbody id="cuerpoCodigoCO"></tbody>
+
+        </table>
+
+      </section>
+
+    </div>
+
+  </section>
+
   <script src="script.js"></script>
 
 </body>

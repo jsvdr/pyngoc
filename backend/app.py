@@ -5,6 +5,7 @@ from typing import Any
 # Lo de fuera no se confía: se revisa con isinstance o se devuelve 400.
 from flask import Flask, Response, jsonify, request, send_from_directory
 from intermedio import ErrorIntermedio, generar_codigo_intermedio
+from objeto import generar_codigo_objeto
 from parser import Parser
 from scanner import analizar_lexico
 from semantico import AnalizadorSemantico
@@ -276,6 +277,92 @@ def generar_intermedio() -> Response | tuple[Response, int]:
             "filas": filas,
             "mensaje": mensaje,
             "errores": [],
+        }
+    )
+
+
+# CÓDIGO OBJETO
+@app.route("/objeto", methods=["POST"])
+def generar_objeto() -> Response | tuple[Response, int]:
+    # Igual que /intermedio: si llega algo roto, 400 y no se rompe nada.
+    json_recibido: dict[str, Any] | None = request.get_json(silent=True)
+
+    if not isinstance(json_recibido, dict):
+        return jsonify(
+            {
+                "ok": False,
+                "datos": [],
+                "codigo": [],
+                "errores": ["No se recibió código para analizar."],
+            }
+        ), 400
+
+    codigo_bruto: Any = json_recibido.get("codigo")
+
+    if not isinstance(codigo_bruto, str):
+        return jsonify(
+            {
+                "ok": False,
+                "datos": [],
+                "codigo": [],
+                "errores": ["No se recibió código para analizar."],
+            }
+        ), 400
+
+    codigo_fuente: str = codigo_bruto
+
+    # 1. Scanner
+    lista_tokens, lista_errores_lexico = analizar_lexico(codigo_fuente)
+
+    if lista_errores_lexico:
+        return respuesta_sin_objeto(lista_errores_lexico)
+
+    # 2. Parser
+    revisor_sintaxis = Parser(lista_tokens)
+
+    es_valido, lista_errores_sintaxis = revisor_sintaxis.analizar()
+
+    if not es_valido:
+        return respuesta_sin_objeto(lista_errores_sintaxis)
+
+    # 3. Semántico
+    revisor_tipos = AnalizadorSemantico(lista_tokens)
+
+    es_valido, lista_errores_tipos = revisor_tipos.analizar()
+
+    if not es_valido:
+        return respuesta_sin_objeto(lista_errores_tipos)
+
+    # 4. Generar código objeto
+    es_valido, datos, codigo, lista_errores_objeto = generar_codigo_objeto(
+        lista_tokens,
+        revisor_tipos.tabla,
+    )
+
+    if not es_valido:
+        return respuesta_sin_objeto(lista_errores_objeto)
+
+    return jsonify(
+        {
+            "ok": True,
+            "datos": datos,
+            "codigo": codigo,
+            "errores": [],
+        }
+    )
+
+
+# El panel tiene que avisar que no se puede generar y mostrar por qué.
+def respuesta_sin_objeto(lista_errores: list[str]) -> Response:
+    return jsonify(
+        {
+            "ok": False,
+            "datos": [],
+            "codigo": [],
+            "errores": [
+                "No se puede generar código objeto.",
+                *lista_errores,
+            ],
         }
     )
 

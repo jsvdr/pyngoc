@@ -331,6 +331,8 @@ textarea {
 
   display: flex;
 
+  flex-direction: column;
+
   overflow: hidden;
 
   background-color: white;
@@ -343,7 +345,7 @@ textarea {
 .co-grupo {
   flex: 1;
 
-  min-width: 0;
+  min-height: 0;
 
   overflow: auto;
 
@@ -358,9 +360,9 @@ textarea {
 }
 
 
-/* Separador vertical entre DATOS y CÓDIGO, como el borde del CI. */
+/* Separador horizontal: DATOS arriba, CÓDIGO abajo. */
 .co-grupo + .co-grupo {
-  border-left: 2px solid #999;
+  border-top: 2px solid #999;
 }
 
 
@@ -425,18 +427,6 @@ textarea {
     grid-row: auto;
 
     min-height: 400px;
-  }
-
-
-  .co-tabla-contenedor {
-    flex-direction: column;
-  }
-
-
-  .co-grupo + .co-grupo {
-    border-left: none;
-
-    border-top: 2px solid #999;
   }
 
 }

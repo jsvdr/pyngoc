@@ -323,17 +323,13 @@ textarea {
 }
 
 
-/* Igual que el contenedor del CI: un solo recuadro blanco con scroll. */
+/* Un solo recuadro blanco con un único scroll: baja DATOS y después CÓDIGO. */
 .co-tabla-contenedor {
   flex: 1;
 
   min-height: 0;
 
-  display: flex;
-
-  flex-direction: column;
-
-  overflow: hidden;
+  overflow: auto;
 
   background-color: white;
 
@@ -341,14 +337,8 @@ textarea {
 }
 
 
-/* Cada mitad tiene su propio encabezado y su propio scroll. */
+/* Cada sección ocupa su altura natural: no tiene scroll propio. */
 .co-grupo {
-  flex: 1;
-
-  min-height: 0;
-
-  overflow: auto;
-
   padding: 15px;
 }
 

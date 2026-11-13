@@ -98,78 +98,66 @@
 
     </section>
 
-  </main>
 
+    <!-- CÓDIGO OBJETO -->
+    <section class="panel co-panel">
 
-  <!-- BOTÓN FLOTANTE DE CÓDIGO OBJETO -->
-  <button id="btnCO" class="co-button" title="Generar código objeto">
-    CO
-  </button>
-
-
-  <!-- PANEL CÓDIGO OBJETO -->
-  <section id="panelCO" class="co-panel" hidden>
-
-    <div class="co-panel-header">
-
-      <h2>Código Objeto</h2>
-
-      <button id="btnCerrarCO" class="co-close" title="Cerrar">
-        ×
+      <button id="btnCO" class="main-button">
+        CO
       </button>
 
-    </div>
+      <div id="errorCO" class="co-error"></div>
 
-    <div id="errorCO" class="co-error"></div>
+      <div class="co-tabla-contenedor">
 
-    <div class="co-tabla-contenedor">
+        <!-- DATOS -->
+        <section class="co-grupo">
 
-      <!-- DATOS -->
-      <section class="co-grupo">
+          <h3>DATOS</h3>
 
-        <h3>DATOS</h3>
+          <table class="tabla-co">
 
-        <table class="tabla-co">
+            <thead>
+              <tr>
+                <th>DIR</th>
+                <th>CONTENIDO</th>
+                <th>HEX</th>
+              </tr>
+            </thead>
 
-          <thead>
-            <tr>
-              <th>DIR</th>
-              <th>CONTENIDO</th>
-              <th>HEX</th>
-            </tr>
-          </thead>
+            <tbody id="cuerpoDatosCO"></tbody>
 
-          <tbody id="cuerpoDatosCO"></tbody>
+          </table>
 
-        </table>
-
-      </section>
+        </section>
 
 
-      <!-- CÓDIGO -->
-      <section class="co-grupo">
+        <!-- CÓDIGO -->
+        <section class="co-grupo">
 
-        <h3>CÓDIGO</h3>
+          <h3>CÓDIGO</h3>
 
-        <table class="tabla-co">
+          <table class="tabla-co">
 
-          <thead>
-            <tr>
-              <th>DIR</th>
-              <th>CONTENIDO</th>
-              <th>HEX</th>
-            </tr>
-          </thead>
+            <thead>
+              <tr>
+                <th>DIR</th>
+                <th>CONTENIDO</th>
+                <th>HEX</th>
+              </tr>
+            </thead>
 
-          <tbody id="cuerpoCodigoCO"></tbody>
+            <tbody id="cuerpoCodigoCO"></tbody>
 
-        </table>
+          </table>
 
-      </section>
+        </section>
 
-    </div>
+      </div>
 
-  </section>
+    </section>
+
+  </main>
 
   <script src="script.js"></script>
 

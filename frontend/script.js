@@ -8,8 +8,6 @@ const btnSemantico = document.getElementById("btnSemantico");
 const btnCI = document.getElementById("btnCI");
 const cajaArchivo = document.getElementById("fileInput");
 const btnCO = document.getElementById("btnCO");
-const panelCO = document.getElementById("panelCO");
-const btnCerrarCO = document.getElementById("btnCerrarCO");
 const cuerpoDatosCO = document.getElementById("cuerpoDatosCO");
 const cuerpoCodigoCO = document.getElementById("cuerpoCodigoCO");
 const errorCO = document.getElementById("errorCO");
@@ -225,7 +223,6 @@ function pintarTablaCO(cuerpo, filas) {
 }
 
 btnCO.addEventListener("click", async function () {
-  panelCO.hidden = false;
   limpiarObjeto();
 
   try {
@@ -252,8 +249,4 @@ btnCO.addEventListener("click", async function () {
     console.error(fallo);
     errorCO.textContent = "Error al generar el código objeto.";
   }
-});
-
-btnCerrarCO.addEventListener("click", function () {
-  panelCO.hidden = true;
 });

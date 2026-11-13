@@ -278,102 +278,12 @@ textarea {
    CÓDIGO OBJETO
    ================================== */
 
-.co-button {
-  position: fixed;
-
-  right: 20px;
-  bottom: 20px;
-
-  z-index: 11;
-
-  width: 70px;
-  height: 70px;
-
-  border: none;
-  border-radius: 50%;
-
-  background-color: #1f6aa5;
-
-  color: white;
-
-  font-size: 22px;
-  font-weight: bold;
-
-  cursor: pointer;
-
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-}
-
-
-.co-button:hover {
-  background-color: #144d75;
-}
-
-
+/* Mismo cuadrante que el CI, pero a la derecha. */
 .co-panel {
-  position: fixed;
-
-  right: 20px;
-  bottom: 90px;
-
-  z-index: 10;
-
-  width: min(1600px, calc(100vw - 40px));
-  height: min(75vh, 760px);
-
-  display: flex;
-  flex-direction: column;
-
-  padding: 15px;
+  grid-column: span 3;
+  grid-row: 2;
 
   background-color: #e0e0e0;
-
-  border-radius: 10px;
-
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
-}
-
-
-/* El atributo hidden le gana al display: flex. */
-.co-panel[hidden] {
-  display: none;
-}
-
-
-.co-panel-header {
-  display: flex;
-
-  justify-content: space-between;
-  align-items: center;
-
-  gap: 10px;
-
-  flex-shrink: 0;
-}
-
-
-.co-panel-header h2 {
-  margin: 0;
-}
-
-
-.co-close {
-  border: none;
-
-  background: transparent;
-
-  color: #111;
-
-  font-size: 32px;
-
-  line-height: 1;
-
-  cursor: pointer;
-}
-
-
-.co-close:hover {
-  color: #cc0000;
 }
 
 

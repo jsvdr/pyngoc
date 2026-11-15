@@ -50,6 +50,10 @@ PROHIBIDO_TRAS_COMPARACION = (
 
 
 # Corta una línea TASM en (Nombre, Operador, Atributo).
+#   "MOV AX, a"     -> ("", "MOV", "AX, a")
+#   "a DW ?"        -> ("a", "DW", "?")
+#   "ETIQUETA:"     -> ("ETIQUETA:", "", "")
+#   ""              -> ("", "", "")
 def partir_linea(linea: str) -> tuple[str, str, str]:
     linea = linea.strip()
 
@@ -60,13 +64,19 @@ def partir_linea(linea: str) -> tuple[str, str, str]:
         return (linea, "", "")
 
     partes = linea.split(" ", 1)
+    primera = partes[0]
+    resto = partes[1] if len(partes) > 1 else ""
 
-    if partes[0] in INSTRUCCIONES:
-        return ("", partes[0], partes[1] if len(partes) > 1 else "")
+    # "MOV ...": la instrucción va en Operador y todo lo demás en Atributo.
+    if primera in INSTRUCCIONES:
+        return ("", primera, resto)
 
-    resto = partes[1].split(" ", 1) if len(partes) > 1 else [""]
+    # "a DW ?": la variable va en Nombre y después vienen Operador y Atributo.
+    partes_resto = resto.split(" ", 1)
+    operador = partes_resto[0]
+    atributo = partes_resto[1] if len(partes_resto) > 1 else ""
 
-    return (partes[0], resto[0], resto[1] if len(resto) > 1 else "")
+    return (primera, operador, atributo)
 
 
 # Generador: copia la forma del parser, pero en vez de reconocer va juntando
@@ -201,6 +211,14 @@ class Generador:
         self.condicion_falsa(etiqueta_else)
 
         self.avanzar_si_es(TokenKind.RPAREN)
+
+        # Si quedó algo antes del '{', la condición no era la que se creía
+        # (por ejemplo "if (a @ 1) > 2": el paréntesis no rodea todo).
+        if not self.token_actual_es(TokenKind.LBRACE):
+            raise ErrorIntermedio(
+                "En el if, los paréntesis deben rodear toda la condición.",
+            )
+
         self.avanzar_si_es(TokenKind.LBRACE)
 
         self.lista_decl()
@@ -240,6 +258,12 @@ class Generador:
         self.condicion_falsa(etiqueta_fin)
 
         self.avanzar_si_es(TokenKind.RPAREN)
+
+        if not self.token_actual_es(TokenKind.LBRACE):
+            raise ErrorIntermedio(
+                "En el while, los paréntesis deben rodear toda la condición.",
+            )
+
         self.avanzar_si_es(TokenKind.LBRACE)
 
         self.lista_decl()

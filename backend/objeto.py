@@ -630,42 +630,50 @@ def tamano_de(item: Item) -> int:
 
 # Devuelve una fila por instrucción: dirección, bytes y texto.
 def ensamblar(items: list[Item]) -> list[Fila]:
-    direcciones: dict[str, int] = {}
-    posiciones: list[int] = []
+    # dirección que le toca a cada elemento de la lista
+    direccion_de_cada_item: list[int] = []
+    # nombre de etiqueta -> dirección
+    direccion_de_etiqueta: dict[str, int] = {}
 
-    # Se repite hasta que ningún salto corto quede fuera de rango.
+    # PASO 1 y 2: suponer saltos cortos, medir, y agrandar los que no entran.
+    # Cada vez que un salto se agranda, todo lo que viene atrás se corre:
+    # por eso se repite la medición hasta que nada cambie.
     for _ in range(len(items) + 2):
-        direcciones = {}
-        posiciones = []
+        direccion_de_cada_item = []
+        direccion_de_etiqueta = {}
         direccion = CODE_BASE
 
         for item in items:
-            posiciones.append(direccion)
+            direccion_de_cada_item.append(direccion)
 
             if isinstance(item, Etiqueta):
-                direcciones[item.nombre] = direccion
+                direccion_de_etiqueta[item.nombre] = direccion
             else:
                 direccion += tamano_de(item)
 
-        promovido = False
+        hubo_cambio = False
 
         for posicion, item in enumerate(items):
             if not isinstance(item, Salto) or not item.corto:
                 continue
 
-            if item.etiqueta not in direcciones:
+            if item.etiqueta not in direccion_de_etiqueta:
                 raise ErrorObjeto(f"No existe la etiqueta '{item.etiqueta}'.")
 
-            siguiente = posiciones[posicion] + tamano_salto(item.mnemonico, True)
-            relativo = direcciones[item.etiqueta] - siguiente
+            # rel = destino - dirección de la instrucción que sigue al salto
+            siguiente = direccion_de_cada_item[posicion] + tamano_salto(
+                item.mnemonico, True
+            )
+            relativo = direccion_de_etiqueta[item.etiqueta] - siguiente
 
             if not -128 <= relativo <= 127:
                 item.corto = False
-                promovido = True
+                hubo_cambio = True
 
-        if not promovido:
+        if not hubo_cambio:
             break
 
+    # PASO 3: con las direcciones definitivas, sacar los bytes de cada fila.
     filas: list[Fila] = []
 
     for posicion, item in enumerate(items):
@@ -673,14 +681,14 @@ def ensamblar(items: list[Item]) -> list[Fila]:
             continue
 
         if isinstance(item, Salto):
-            if item.etiqueta not in direcciones:
+            if item.etiqueta not in direccion_de_etiqueta:
                 raise ErrorObjeto(f"No existe la etiqueta '{item.etiqueta}'.")
 
-            siguiente = posiciones[posicion] + tamano_salto(
+            siguiente = direccion_de_cada_item[posicion] + tamano_salto(
                 item.mnemonico,
                 item.corto,
             )
-            relativo = direcciones[item.etiqueta] - siguiente
+            relativo = direccion_de_etiqueta[item.etiqueta] - siguiente
             bytes_instruccion = codificar_salto(
                 item.mnemonico,
                 relativo,
@@ -697,7 +705,7 @@ def ensamblar(items: list[Item]) -> list[Fila]:
 
         filas.append(
             {
-                "direccion": posiciones[posicion],
+                "direccion": direccion_de_cada_item[posicion],
                 "bytes": bytes_instruccion,
                 "texto": texto,
             },
@@ -713,9 +721,13 @@ def ensamblar(items: list[Item]) -> list[Fila]:
 
 # DIR en binario: 16 bits en cuatro nibbles, un espacio entre cada uno.
 def formatear_direccion(direccion: int) -> str:
-    return " ".join(
-        f"{(direccion >> desplazamiento) & 0xF:04b}" for desplazamiento in (12, 8, 4, 0)
-    )
+    partes: list[str] = []
+
+    for desplazamiento in (12, 8, 4, 0):
+        nibble = (direccion >> desplazamiento) & 0xF
+        partes.append(f"{nibble:04b}")
+
+    return " ".join(partes)
 
 
 # CONTENIDO: dos nibbles por byte (un espacio) y dos espacios entre bytes.
@@ -723,7 +735,9 @@ def formatear_binario(bytes_instruccion: list[int]) -> str:
     partes: list[str] = []
 
     for byte in bytes_instruccion:
-        partes.append(f"{byte >> 4:04b} {byte & 0x0F:04b}")
+        nibble_alto = byte >> 4
+        nibble_bajo = byte & 0x0F
+        partes.append(f"{nibble_alto:04b} {nibble_bajo:04b}")
 
     return "  ".join(partes)
 

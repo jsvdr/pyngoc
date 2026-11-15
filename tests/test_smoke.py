@@ -328,6 +328,22 @@ def test_intermedio_rechaza_comparacion_compuesta() -> None:
         generar_codigo_intermedio(tabla, lista_tokens)
 
 
+# El paréntesis tiene que rodear toda la condición: "(a @ 1) > 2" no entra.
+def test_intermedio_rechaza_parentesis_parcial_en_la_condicion() -> None:
+    fuentes = (
+        "{ int a = 1; if (a @ 1) > 2 { a = 0; }; }",
+        "{ int a = 1; while (a @ 1) > 2 { a = 0; }; }",
+    )
+
+    for fuente in fuentes:
+        lista_tokens, _ = analizar_lexico(fuente)
+
+        _, _, tabla = compilar_hasta_semantico(fuente)
+
+        with pytest.raises(ErrorIntermedio):
+            generar_codigo_intermedio(tabla, lista_tokens)
+
+
 def test_scanner_rechaza_identificadores_no_ascii() -> None:
     for fuente, esperado in (
         ("{ int A = 1; }", "Línea 1: Caracter inválido 'A'."),

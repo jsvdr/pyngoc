@@ -22,12 +22,6 @@ from tokens import Token, TokenKind
 DATA_BASE = 0x2000
 CODE_BASE = 0x0000
 
-# El lenguaje todavía no tiene negativos: los valores son 0..65535.
-ENTEROS_CON_SIGNO = False
-
-# ADD/SUB/CMP usan la forma corta 83 cuando el inmediato entra con signo.
-USAR_IMM8 = True
-
 BYTES_POR_VARIABLE = 2
 
 
@@ -201,11 +195,10 @@ class GeneradorObjeto:
     # IF → if EXPRESION { LISTA_DECL } [ else { LISTA_DECL } ]
     def if_stmt(self) -> None:
         self.avanzar_si_es(TokenKind.IF)
-        self.avanzar_si_es(TokenKind.LPAREN)
 
+        # Los paréntesis de la condición, si los hay, los consume FACTOR.
         self.expresion()
 
-        self.avanzar_si_es(TokenKind.RPAREN)
         self.avanzar_si_es(TokenKind.LBRACE)
 
         etiqueta_else = self.nueva_etiqueta("IF_ELSE")
@@ -244,11 +237,10 @@ class GeneradorObjeto:
         self.etiqueta(etiqueta_inicio)
 
         self.avanzar_si_es(TokenKind.WHILE)
-        self.avanzar_si_es(TokenKind.LPAREN)
 
+        # Igual que en if: los paréntesis son parte de la expresión.
         self.expresion()
 
-        self.avanzar_si_es(TokenKind.RPAREN)
         self.avanzar_si_es(TokenKind.LBRACE)
 
         self.emitir("CMP", (("reg", "AX"), ("imm", 0)))
@@ -306,9 +298,9 @@ class GeneradorObjeto:
             return "JE"
 
         if self.token_actual_es(TokenKind.GREATER):
-            return "JG"
+            return "JA"
 
-        return "JL"
+        return "JB"
 
     # CMP AX, lado derecho. La izquierda ya está en AX.
     def comparar_con_derecha(self) -> None:
@@ -378,6 +370,11 @@ class GeneradorObjeto:
     # MUL/DIV con el lado derecho simple (variable o número).
     def emitir_mul_div(self, mnemonico: str, derecha: Operando) -> None:
         if derecha[0] == "id":
+            if derecha[1] not in self.direcciones:
+                raise ErrorObjeto(
+                    f"La variable '{derecha[1]}' no ha sido declarada.",
+                )
+
             if mnemonico == "DIV":
                 self.emitir("MOV", (("reg", "DX"), ("imm", 0)))
 
@@ -487,6 +484,11 @@ class GeneradorObjeto:
     # Un operando simple se convierte en fuente de instrucción.
     def fuente_de(self, operando: Operando) -> Operando:
         if operando[0] == "id":
+            if operando[1] not in self.direcciones:
+                raise ErrorObjeto(
+                    f"La variable '{operando[1]}' no ha sido declarada.",
+                )
+
             return ("mem", self.direcciones[operando[1]])
 
         if operando[0] == "num" or operando[0] == "bool":

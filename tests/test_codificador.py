@@ -305,6 +305,22 @@ def test_jle_corto():
     assert hex_de(codificar_salto("JLE", 5, corto=True)) == "7E 05"
 
 
+def test_ja_corto():
+    assert hex_de(codificar_salto("JA", 5, corto=True)) == "77 05"
+
+
+def test_jb_corto():
+    assert hex_de(codificar_salto("JB", 5, corto=True)) == "72 05"
+
+
+def test_jae_corto():
+    assert hex_de(codificar_salto("JAE", 5, corto=True)) == "73 05"
+
+
+def test_jbe_corto():
+    assert hex_de(codificar_salto("JBE", 5, corto=True)) == "76 05"
+
+
 def test_je_cercano():
     assert hex_de(codificar_salto("JE", 0x0100, corto=False)) == "0F 84 00 01"
 
@@ -319,6 +335,22 @@ def test_jg_cercano():
 
 def test_jl_cercano():
     assert hex_de(codificar_salto("JL", 0x0100, corto=False)) == "0F 8C 00 01"
+
+
+def test_ja_cercano():
+    assert hex_de(codificar_salto("JA", 0x0100, corto=False)) == "0F 87 00 01"
+
+
+def test_jb_cercano():
+    assert hex_de(codificar_salto("JB", 0x0100, corto=False)) == "0F 82 00 01"
+
+
+def test_jae_cercano():
+    assert hex_de(codificar_salto("JAE", 0x0100, corto=False)) == "0F 83 00 01"
+
+
+def test_jbe_cercano():
+    assert hex_de(codificar_salto("JBE", 0x0100, corto=False)) == "0F 86 00 01"
 
 
 def test_call_cercano():

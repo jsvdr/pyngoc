@@ -118,6 +118,10 @@ saltos y pila) y arma el ModR/M. `objeto.py` recorre los tokens con la misma
 forma que el parser y emite instrucciones. Los saltos se arman en dos pasadas:
 si el relativo no entra en −128..127, se promueven a cercanos (`E9` o `0F 8x`).
 
+Las comparaciones usan saltos **sin signo** (`>` → `JA`, `<` → `JB`): el
+lenguaje maneja 0..65535 y `MUL`/`DIV` son sin signo, así que `40000 > 5` no
+puede leerse como un negativo. `==` sigue siendo `JE`.
+
 Ejemplo (`x` en 2000h, `y` en 2002h):
 
 ```text

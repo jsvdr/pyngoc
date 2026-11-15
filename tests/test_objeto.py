@@ -255,6 +255,60 @@ def test_comparacion_contra_suma():
     assert "39 D8" in hexes  # CMP AX,BX
 
 
+# El lenguaje maneja 0..65535 y MUL/DIV son sin signo: los saltos también.
+def test_mayor_usa_salto_sin_signo():
+    fuente = "{ if (x > y) { y = 1; } }"
+
+    ok, _, codigo, errores = generar(fuente, TABLA)
+
+    assert ok, errores
+
+    textos = [fila["texto"] for fila in codigo]
+
+    assert any(texto.startswith("JA ") for texto in textos)
+    assert not any(texto.startswith("JG ") for texto in textos)
+
+
+def test_menor_usa_salto_sin_signo():
+    fuente = "{ if (x < y) { y = 1; } }"
+
+    ok, _, codigo, errores = generar(fuente, TABLA)
+
+    assert ok, errores
+
+    textos = [fila["texto"] for fila in codigo]
+
+    assert any(texto.startswith("JB ") for texto in textos)
+    assert not any(texto.startswith("JL ") for texto in textos)
+
+
+# Los paréntesis de la condición son de FACTOR, no de IF: no se comen.
+def test_if_con_parentesis_y_operador():
+    fuente = "{ if (x @ 1) & (y @ 2) { y = 3; } }"
+
+    ok, _, codigo, errores = generar(fuente, TABLA)
+
+    assert ok, errores
+
+    hexes = [fila["hex"] for fila in codigo]
+
+    assert "F7 E3" in hexes  # MUL BX: la condición llegó completa
+    assert hexes[-2] == "F4"  # HLT: se consumieron todos los tokens
+
+
+def test_while_con_parentesis():
+    fuente = "{ while (x @ 1) { y = y @ 1; } }"
+
+    ok, _, codigo, errores = generar(fuente, TABLA)
+
+    assert ok, errores
+
+    hexes = [fila["hex"] for fila in codigo]
+
+    assert hexes[-2] == "F4"  # HLT: se consumieron todos los tokens
+    assert hexes[-3].startswith("EB")  # JMP de vuelta al inicio
+
+
 # ==================================
 # SALTOS CORTOS Y CERCANOS
 # ==================================
@@ -294,6 +348,21 @@ def test_variable_no_declarada():
 
     assert not ok
     assert any("no ha sido declarada" in error for error in errores)
+
+
+# Sin esta guarda, fuente_de y emitir_mul_div lanzarían KeyError.
+def test_variable_no_declarada_en_la_expresion():
+    ok, _, _, errores = generar("{ x = z @ 1; }", TABLA)
+
+    assert not ok
+    assert errores == ["La variable 'z' no ha sido declarada."]
+
+
+def test_variable_no_declarada_en_mul_div():
+    ok, _, _, errores = generar("{ x = x & z; }", TABLA)
+
+    assert not ok
+    assert errores == ["La variable 'z' no ha sido declarada."]
 
 
 def test_numero_fuera_de_16_bits():

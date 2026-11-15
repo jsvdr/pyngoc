@@ -54,6 +54,9 @@ GRUPO_F7 = {"MUL": 0x4, "DIV": 0x6}
 GRUPO_FF = {"CALL": 0x2, "JMP": 0x4, "PUSH": 0x6}
 
 # Saltos cortos: opcode de un byte + cb.
+# Los saltos con signo (JL/JG) quedan en la tabla, pero el generador usa
+# los sin signo (JB/JA): el lenguaje maneja valores 0..65535 y MUL/DIV
+# son sin signo.
 SALTOS_CORTOS = {
     "JE": 0x74,
     "JZ": 0x74,
@@ -63,6 +66,10 @@ SALTOS_CORTOS = {
     "JGE": 0x7D,
     "JLE": 0x7E,
     "JG": 0x7F,
+    "JB": 0x72,
+    "JAE": 0x73,
+    "JBE": 0x76,
+    "JA": 0x77,
 }
 
 # Saltos cercanos: 0F + segundo byte + cw (80386 o superior).
@@ -75,6 +82,10 @@ SALTOS_CERCANOS = {
     "JGE": 0x8D,
     "JLE": 0x8E,
     "JG": 0x8F,
+    "JB": 0x82,
+    "JAE": 0x83,
+    "JBE": 0x86,
+    "JA": 0x87,
 }
 
 JMP_CORTO = 0xEB
@@ -200,7 +211,7 @@ def _codificar_alu(
         if destino[0] == "reg" and destino[1] == "AX" and forzar is None:
             return [opcode_ax_imm] + bytes_de(valor, 2)
 
-        # 83: inmmediato de 8 bits con signo (-128..127).
+        # 83: inmediato de 8 bits con signo (-128..127).
         if forzar == "imm8":
             if not -128 <= valor <= 127:
                 raise ErrorCodificador(

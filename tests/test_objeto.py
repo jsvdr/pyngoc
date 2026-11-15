@@ -192,6 +192,53 @@ def test_while_vuelve_al_inicio():
     assert any(texto.startswith("JMP ") for texto in textos)
 
 
+# Programa completo de la tarea, byte por byte y con sus direcciones.
+def test_programa_completo_con_while():
+    fuente = "{ int x = 5; while x > 0 { x = x # 1; }; }"
+    lista_tokens, tabla = tabla_real(fuente)
+
+    ok, _, codigo, errores = generar_codigo_objeto(lista_tokens, tabla)
+
+    assert ok, errores
+
+    assert [fila["hex"] for fila in codigo] == [
+        "B8 05 00",  # 0000  MOV AX,5
+        "A3 00 20",  # 0003  MOV [2000h],AX
+        "A1 00 20",  # 0006  MOV AX,[2000h]
+        "3D 00 00",  # 0009  CMP AX,0
+        "77 05",  # 000C  JA  CMP_VERDADERO
+        "B8 00 00",  # 000E  MOV AX,0
+        "EB 03",  # 0011  JMP CMP_FIN
+        "B8 01 00",  # 0013  MOV AX,1
+        "3D 00 00",  # 0016  CMP AX,0
+        "74 0B",  # 0019  JE  WHILE_FIN
+        "A1 00 20",  # 001B  MOV AX,[2000h]
+        "2D 01 00",  # 001E  SUB AX,1
+        "A3 00 20",  # 0021  MOV [2000h],AX
+        "EB E0",  # 0024  JMP WHILE_INICIO (-32)
+        "F4",  # 0026  HLT
+        "C3",  # 0027  RET
+    ]
+    assert [fila["direccion"] for fila in filas_ensambladas(fuente, tabla)] == [
+        0x0000,
+        0x0003,
+        0x0006,
+        0x0009,
+        0x000C,
+        0x000E,
+        0x0011,
+        0x0013,
+        0x0016,
+        0x0019,
+        0x001B,
+        0x001E,
+        0x0021,
+        0x0024,
+        0x0026,
+        0x0027,
+    ]
+
+
 def test_print_usa_pila_y_rutina():
     fuente = "{ print ( x ); }"
 
@@ -355,14 +402,31 @@ def test_variable_no_declarada_en_la_expresion():
     ok, _, _, errores = generar("{ x = z @ 1; }", TABLA)
 
     assert not ok
-    assert errores == ["La variable 'z' no ha sido declarada."]
+    assert errores == [
+        "Línea 1: ERROR DE CÓDIGO OBJETO: La variable 'z' no ha sido declarada.",
+    ]
 
 
 def test_variable_no_declarada_en_mul_div():
     ok, _, _, errores = generar("{ x = x & z; }", TABLA)
 
     assert not ok
-    assert errores == ["La variable 'z' no ha sido declarada."]
+    assert errores == [
+        "Línea 1: ERROR DE CÓDIGO OBJETO: La variable 'z' no ha sido declarada.",
+    ]
+
+
+# El generador sigue después del error: se muestran todos, cada uno con su línea.
+def test_variables_no_declaradas_conservan_su_linea():
+    fuente = "{\n x = z @ 1;\n y = w @ 2;\n}"
+
+    ok, _, _, errores = generar(fuente, TABLA)
+
+    assert not ok
+    assert errores == [
+        "Línea 2: ERROR DE CÓDIGO OBJETO: La variable 'z' no ha sido declarada.",
+        "Línea 3: ERROR DE CÓDIGO OBJETO: La variable 'w' no ha sido declarada.",
+    ]
 
 
 def test_numero_fuera_de_16_bits():

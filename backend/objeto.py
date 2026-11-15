@@ -267,12 +267,12 @@ class GeneradorObjeto:
         self.salto("CALL", "rutina_print")
         self.emitir("ADD", (("reg", "SP"), ("imm", 2)), forzar="imm8")
 
-    # EXPRESION → SUMA [ ( == | > | < ) SUMA ]*
+    # EXPRESION → SUMA [ ( == | > | < ) SUMA ]
     # Deja 0 o 1 en AX cuando hay comparación.
     def expresion(self) -> None:
         self.suma()
 
-        while (
+        if (
             self.token_actual_es(TokenKind.EQ)
             or self.token_actual_es(TokenKind.GREATER)
             or self.token_actual_es(TokenKind.LESS)
@@ -473,6 +473,9 @@ class GeneradorObjeto:
                     token.line,
                     f"La variable '{token.lexeme}' no ha sido declarada.",
                 )
+
+                # Se sigue con un 0 para no propagar un id inexistente.
+                return ("num", 0)
 
             return ("id", token.lexeme)
 

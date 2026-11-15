@@ -382,7 +382,8 @@ textarea {
 
   vertical-align: top;
 
-  white-space: nowrap;
+  /* pre y no nowrap: conserva el doble espacio entre bytes. */
+  white-space: pre;
 }
 
 

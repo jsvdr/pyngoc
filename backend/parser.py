@@ -172,19 +172,12 @@ class Parser:
 
     # FACTOR → ID | NUM | BOOL | ( EXPRESION )
     def factor(self) -> None:
-        if self.token_actual_es(TokenKind.ID):
-            self.avanzar()
-            return
-
-        if self.token_actual_es(TokenKind.NUM):
-            self.avanzar()
-            return
-
-        if self.token_actual_es(TokenKind.TRUE):
-            self.avanzar()
-            return
-
-        if self.token_actual_es(TokenKind.FALSE):
+        if self.token_actual().kind in (
+            TokenKind.ID,
+            TokenKind.NUM,
+            TokenKind.TRUE,
+            TokenKind.FALSE,
+        ):
             self.avanzar()
             return
 

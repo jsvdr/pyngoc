@@ -139,12 +139,15 @@ def test_datos_de_las_variables():
     assert [fila["hex"] for fila in datos] == ["00 00", "00 00"]
 
 
-def test_termina_con_hlt_y_ret():
+def test_termina_con_hlt():
     ok, _, codigo, errores = generar("{ x = 1; }", TABLA)
 
     assert ok, errores
-    assert [fila["hex"] for fila in codigo[-2:]] == ["F4", "C3"]
-    assert [fila["texto"] for fila in codigo[-2:]] == ["HLT", "RET"]
+    assert codigo[-1]["hex"] == "F4"
+    assert codigo[-1]["texto"] == "HLT"
+
+    # Sin print nadie llama a rutina_print: no se emite.
+    assert all(fila["texto"] != "RET" for fila in codigo)
 
 
 # ==================================
@@ -217,7 +220,6 @@ def test_programa_completo_con_while():
         "A3 00 20",  # 0021  MOV [2000h],AX
         "EB E0",  # 0024  JMP WHILE_INICIO (-32)
         "F4",  # 0026  HLT
-        "C3",  # 0027  RET
     ]
     assert [fila["direccion"] for fila in filas_ensambladas(fuente, tabla)] == [
         0x0000,
@@ -235,7 +237,6 @@ def test_programa_completo_con_while():
         0x0021,
         0x0024,
         0x0026,
-        0x0027,
     ]
 
 
@@ -251,6 +252,59 @@ def test_print_usa_pila_y_rutina():
     assert "50" in hexes  # PUSH AX
     assert "83 C4 02" in hexes  # ADD SP,2
     assert any(fila["texto"].startswith("CALL ") for fila in codigo)
+
+
+def test_print_imprime_con_int_21h():
+    fuente = "{ print ( x ); }"
+
+    ok, _, codigo, errores = generar(fuente, TABLA)
+
+    assert ok, errores
+
+    hexes = [fila["hex"] for fila in codigo]
+    textos = [fila["texto"] for fila in codigo]
+
+    assert hexes.count("CD 21") == 2  # decenas y unidades
+    assert "B2 0A" in hexes  # MOV DL,10
+    assert "F6 F2" in hexes  # DIV DL
+    assert "80 C2 30" in hexes  # ADD DL,30H
+    assert "MOV COC, AL" in textos
+    assert "MOV RESI, AH" in textos
+    assert textos[-1] == "RET"
+
+
+def test_print_agrega_coc_y_resi_a_los_datos():
+    fuente = "{ int x = 1; print ( x ); }"
+    lista_tokens, tabla = tabla_real(fuente)
+
+    ok, datos, _, errores = generar_codigo_objeto(lista_tokens, tabla)
+
+    assert ok, errores
+
+    # x ocupa 2000h-2001h; COC y RESI son de 1 byte: 2002h y 2003h.
+    assert [fila["direccion"] for fila in datos] == [
+        "0010 0000 0000 0000",
+        "0010 0000 0000 0010",
+        "0010 0000 0000 0011",
+    ]
+    assert [fila["hex"] for fila in datos] == ["00 00", "00", "00"]
+
+
+def test_print_de_un_literal_fuera_de_rango():
+    ok, _, _, errores = generar("{ print ( 200 ); }", TABLA)
+
+    assert not ok
+    assert errores == [
+        "Línea 1: ERROR DE CÓDIGO OBJETO: "
+        "El print solo imprime de 0 a 99, y el valor es 200.",
+    ]
+
+
+def test_print_de_una_operacion_que_da_dos_cifras():
+    # 200 # 100 da 100, pero no es un literal suelto: no se rechaza.
+    ok, _, _, errores = generar("{ print ( 200 # 100 ); }", TABLA)
+
+    assert ok, errores
 
 
 # ==================================
@@ -340,7 +394,7 @@ def test_if_con_parentesis_y_operador():
     hexes = [fila["hex"] for fila in codigo]
 
     assert "F7 E3" in hexes  # MUL BX: la condición llegó completa
-    assert hexes[-2] == "F4"  # HLT: se consumieron todos los tokens
+    assert hexes[-1] == "F4"  # HLT: se consumieron todos los tokens
 
 
 def test_while_con_parentesis():
@@ -352,8 +406,8 @@ def test_while_con_parentesis():
 
     hexes = [fila["hex"] for fila in codigo]
 
-    assert hexes[-2] == "F4"  # HLT: se consumieron todos los tokens
-    assert hexes[-3].startswith("EB")  # JMP de vuelta al inicio
+    assert hexes[-1] == "F4"  # HLT: se consumieron todos los tokens
+    assert hexes[-2].startswith("EB")  # JMP de vuelta al inicio
 
 
 # ==================================

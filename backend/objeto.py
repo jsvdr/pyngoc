@@ -81,6 +81,7 @@ class GeneradorObjeto:
     items: list[Item]
     errores: list[str]
     numero_etiqueta: int
+    tiene_print: bool
 
     def __init__(self, tokens: list[Token], tabla: dict[str, str]) -> None:
         self.tokens = tokens
@@ -95,6 +96,15 @@ class GeneradorObjeto:
         for posicion, nombre in enumerate(tabla):
             self.direcciones[nombre] = DATA_BASE + BYTES_POR_VARIABLE * posicion
 
+        # COC y RESI son las dos celdas de 1 byte donde el print parte el
+        # número (decenas y unidades), igual que en el código intermedio.
+        self.tiene_print = any(token.kind == TokenKind.PRINT for token in tokens)
+
+        if self.tiene_print:
+            base_print = DATA_BASE + BYTES_POR_VARIABLE * len(tabla)
+            self.direcciones["COC"] = base_print
+            self.direcciones["RESI"] = base_print + 1
+
         self.items: list[Item] = []
 
     def generar(self) -> tuple[list[Item], list[str]]:
@@ -103,10 +113,12 @@ class GeneradorObjeto:
         if not self.token_actual_es(TokenKind.EOF):
             self.anotar_error(self.token_actual().line, "Se esperaba el final.")
 
-        # Fin del programa y rutina de impresión (por ahora solo RET).
+        # Fin del programa. La rutina de impresión solo existe si hay algún
+        # CALL que la use: sin print, no hace falta la etiqueta ni el RET.
         self.emitir("HLT", ())
-        self.etiqueta("rutina_print")
-        self.emitir("RET", ())
+
+        if self.tiene_print:
+            self.rutina_print()
 
         return self.items, self.errores
 
@@ -259,6 +271,20 @@ class GeneradorObjeto:
         self.avanzar_si_es(TokenKind.PRINT)
         self.avanzar_si_es(TokenKind.LPAREN)
 
+        # El print parte el número en 2 cifras: un literal de 100 en adelante
+        # imprimiría basura (200 -> "D0"). Se avisa, igual que en el CI.
+        if (
+            self.token_actual_es(TokenKind.NUM)
+            and self.tokens[self.posicion + 1].kind == TokenKind.RPAREN
+        ):
+            valor = int(self.token_actual().lexeme)
+
+            if valor > 99:
+                self.anotar_error(
+                    self.token_actual().line,
+                    f"El print solo imprime de 0 a 99, y el valor es {valor}.",
+                )
+
         self.expresion()
 
         self.avanzar_si_es(TokenKind.RPAREN)
@@ -266,6 +292,53 @@ class GeneradorObjeto:
         self.emitir("PUSH", (("reg", "AX"),))
         self.salto("CALL", "rutina_print")
         self.emitir("ADD", (("reg", "SP"), ("imm", 2)), forzar="imm8")
+
+    # Rutina de impresión: AX / 10 deja las decenas en AL y las unidades en AH.
+    # Se guardan en COC y RESI, se pasan a ASCII sumando 30H y se imprimen con
+    # INT 21H / AH=02H, igual que el molde del profe.
+    def rutina_print(self) -> None:
+        self.etiqueta("rutina_print")
+
+        # El valor se apiló antes del CALL: después del CALL queda en [BX+2].
+        self.emitir("MOV", (("reg", "BX"), ("reg", "SP")))
+        self.emitir("MOV", (("reg", "AX"), ("mem", "BX", 2)))
+
+        self.emitir("MOV", (("reg", "DL"), ("imm", 10)))
+        self.emitir("DIV", (("reg", "DL"),))
+
+        direccion_coc = self.direcciones["COC"]
+        direccion_resi = self.direcciones["RESI"]
+
+        self.emitir(
+            "MOV",
+            (("mem", direccion_coc), ("reg", "AL")),
+            texto="MOV COC, AL",
+        )
+        self.emitir(
+            "MOV",
+            (("mem", direccion_resi), ("reg", "AH")),
+            texto="MOV RESI, AH",
+        )
+
+        for direccion, nombre in ((direccion_coc, "COC"), (direccion_resi, "RESI")):
+            self.emitir(
+                "MOV",
+                (("reg", "DL"), ("mem", direccion)),
+                texto=f"MOV DL, {nombre}",
+            )
+            self.emitir(
+                "ADD",
+                (("reg", "DL"), ("imm", 0x30)),
+                texto="ADD DL, 30H",
+            )
+            self.emitir(
+                "MOV",
+                (("reg", "AH"), ("imm", 2)),
+                texto="MOV AH, 02H",
+            )
+            self.emitir("INT", (("imm", 0x21),), texto="INT 21H")
+
+        self.emitir("RET", ())
 
     # EXPRESION → SUMA [ ( == | > | < ) SUMA ]
     # Deja 0 o 1 en AX cuando hay comparación.
@@ -558,8 +631,11 @@ class GeneradorObjeto:
         mnemonico: str,
         operandos: tuple[Operando, ...],
         forzar: str | None = None,
+        texto: str | None = None,
     ) -> None:
-        texto = self.texto_de(mnemonico, operandos)
+        if texto is None:
+            texto = self.texto_de(mnemonico, operandos)
+
         self.items.append(Instruccion(mnemonico, operandos, forzar, texto))
 
     def salto(self, mnemonico: str, etiqueta: str) -> None:
@@ -755,7 +831,7 @@ def fila_para_panel(fila: Fila) -> FilaPanel:
     }
 
 
-def filas_de_datos(tabla: dict[str, str]) -> list[FilaPanel]:
+def filas_de_datos(tabla: dict[str, str], tiene_print: bool = False) -> list[FilaPanel]:
     filas: list[FilaPanel] = []
 
     for posicion, (nombre, tipo) in enumerate(tabla.items()):
@@ -767,6 +843,22 @@ def filas_de_datos(tabla: dict[str, str]) -> list[FilaPanel]:
                 "contenido": formatear_binario([0x00, 0x00]),
                 "hex": formatear_hex([0x00, 0x00]),
                 "texto": f"{nombre} : {tipo}",
+            },
+        )
+
+    if not tiene_print:
+        return filas
+
+    # COC y RESI son de 1 byte, uno después del otro.
+    base_print = DATA_BASE + BYTES_POR_VARIABLE * len(tabla)
+
+    for desplazamiento, nombre in enumerate(("COC", "RESI")):
+        filas.append(
+            {
+                "direccion": formatear_direccion(base_print + desplazamiento),
+                "contenido": formatear_binario([0x00]),
+                "hex": formatear_hex([0x00]),
+                "texto": f"{nombre} : byte",
             },
         )
 
@@ -794,7 +886,7 @@ def generar_codigo_objeto(
     except (ErrorObjeto, ErrorCodificador) as error:
         return False, [], [], [str(error)]
 
-    datos = filas_de_datos(tabla)
+    datos = filas_de_datos(tabla, generador.tiene_print)
     codigo = [fila_para_panel(fila) for fila in filas]
 
     return True, datos, codigo, ["Código Objeto OK"]

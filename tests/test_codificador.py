@@ -129,6 +129,37 @@ def test_mov_dx_cero():
 
 
 # ==================================
+# MOV de 8 bits (lo usa el print)
+# ==================================
+
+
+def test_mov_reg8_imm8():
+    comprobar("MOV", (reg("DL"), imm(10)), "B2 0A")
+    comprobar("MOV", (reg("AH"), imm(2)), "B4 02")
+
+
+def test_mov_mem_reg8():
+    comprobar("MOV", (mem(0x2000), reg("AL")), "88 06 00 20")
+    comprobar("MOV", (mem(0x2000), reg("AH")), "88 26 00 20")
+
+
+def test_mov_reg8_mem():
+    comprobar("MOV", (reg("DL"), mem(0x2000)), "8A 16 00 20")
+
+
+def test_mov_reg8_reg8():
+    comprobar("MOV", (reg("DL"), reg("AL")), "8A D0")
+
+
+def test_mov_no_mezcla_8_y_16_bits():
+    with pytest.raises(ErrorCodificador):
+        codificar("MOV", (reg("AX"), reg("DL")))
+
+    with pytest.raises(ErrorCodificador):
+        codificar("MOV", (reg("DL"), reg("AX")))
+
+
+# ==================================
 # ADD (@)
 # ==================================
 
@@ -262,6 +293,20 @@ def test_div_mem_d8():
 
 def test_div_mem_d16():
     comprobar("DIV", (dep("BP", 0x1234),), "F7 B6 34 12")
+
+
+# DIV de 8 bits: F6 /6. Divide AX entre DL (cociente en AL, resto en AH).
+def test_div_reg8():
+    comprobar("DIV", (reg("DL"),), "F6 F2")
+
+
+# ADD de 8 bits con inmediato: 80 /0. Pasa la cifra a ASCII (+30H).
+def test_add_reg8_imm8():
+    comprobar("ADD", (reg("DL"), imm(0x30)), "80 C2 30")
+
+
+def test_int_21h():
+    comprobar("INT", (imm(0x21),), "CD 21")
 
 
 # ==================================

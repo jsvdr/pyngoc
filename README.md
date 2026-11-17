@@ -93,7 +93,8 @@ encadenar operaciones del mismo nivel:
 - los `bool` son `DB`: se cargan con `MOV AL` + `MOV AH, 0` y se comparan con `CMP AL`
 - `print(x)` parte el valor en `COC` (decenas) y `RESI` (unidades) y los imprime
   con `INT 21H` / `AH=02H`; un literal fuera de 0–99 se rechaza con un error
-  claro, porque la plantilla imprime 2 cifras
+  claro, porque la plantilla imprime 2 cifras. Si el valor viene de una
+  variable no hay control en compilación: 100 o más se imprime mal
 
 Si hiciera falta la pila (por ejemplo `a @ b & c` o `( a @ b )`), el botón CI
 muestra un error claro en vez de generar código.
@@ -110,8 +111,10 @@ y **CÓDIGO** (las instrucciones). Cada fila muestra `DIR | CONTENIDO | HEX`:
 
 Convenciones: `DATA_BASE = 2000h` (2 bytes por variable, `00 00`),
 `CODE_BASE = 0000h`, W = 1, little endian, complemento a 2. Las variables se
-direccionan en forma directa (mod 00, r/m 110). El código termina en `HLT` y la
-rutina `print` es por ahora un `RET`, así que el binario todavía no imprime.
+direccionan en forma directa (mod 00, r/m 110). El código termina en `HLT`; si
+el programa tiene `print`, después va la rutina `rutina_print`, que imprime con
+`DIV DL` + `INT 21H` / `AH=02H` igual que el CI y agrega `COC` y `RESI` (1 byte
+cada una) a la tabla DATOS. Sin `print` no se emite la rutina.
 
 `codificador.py` guarda las variantes en tablas (MOV, ADD/SUB/CMP, MUL/DIV,
 saltos y pila) y arma el ModR/M. `objeto.py` recorre los tokens con la misma

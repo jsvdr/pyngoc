@@ -32,6 +32,22 @@ class ErrorCodificador(Exception):
 # Número de registro dentro de ModR/M (mod = 11) y dentro de +r.
 REG16 = {"AX": 0, "CX": 1, "DX": 2, "BX": 3, "SP": 4, "BP": 5, "SI": 6, "DI": 7}
 
+# Registros de 8 bits. Los cuatro últimos (AH, CH, DH, BH) son la mitad alta.
+# Los usa el print, que trabaja cifra por cifra.
+REG8 = {"AL": 0, "CL": 1, "DL": 2, "BL": 3, "AH": 4, "CH": 5, "DH": 6, "BH": 7}
+
+
+def es_registro8(operando: Operando) -> bool:
+    return operando[0] == "reg" and operando[1] in REG8
+
+
+def numero_registro(nombre: str) -> int:
+    if nombre in REG8:
+        return REG8[nombre]
+
+    return REG16[nombre]
+
+
 # Los números de la tabla de memoria 16 bits NO son los mismos:
 # 110 es [BP] (si mod != 00) y 111 es [BX].
 BASE_MEMORIA = {"BX": 7, "BP": 6, "SI": 4, "DI": 5}
@@ -136,12 +152,42 @@ def operando_memoria(reg: int, operando: Operando) -> list[int]:
 # ModR/M del destino cuando el otro campo es un registro fijo.
 def operando_modrm(operando: Operando, reg: int) -> list[int]:
     if operando[0] == "reg":
-        return modrm(0b11, reg, REG16[operando[1]])
+        return modrm(0b11, reg, numero_registro(operando[1]))
 
     if operando[0] == "mem":
         return operando_memoria(reg, operando)
 
     raise ErrorCodificador(f"No se puede usar un inmediato como destino: {operando}.")
+
+
+# MOV de 8 bits: registros AL/AH/... y bytes en memoria.
+# El ancho se reconoce por el nombre del registro (AL es byte, AX es palabra).
+def _codificar_mov8(destino: Operando, fuente: Operando) -> list[int]:
+    if destino[0] == "reg" and not es_registro8(destino):
+        raise ErrorCodificador("MOV no mezcla registros de 8 y 16 bits.")
+
+    if fuente[0] == "reg" and not es_registro8(fuente):
+        raise ErrorCodificador("MOV no mezcla registros de 8 y 16 bits.")
+
+    # reg8, imm8: B0+r.
+    if destino[0] == "reg" and fuente[0] == "imm":
+        return [0xB0 + REG8[destino[1]]] + bytes_de(fuente[1], 1)
+
+    # reg8, reg8.
+    if destino[0] == "reg" and fuente[0] == "reg":
+        return [0x8A] + modrm(0b11, REG8[destino[1]], REG8[fuente[1]])
+
+    # reg8, mem.
+    if destino[0] == "reg" and fuente[0] == "mem":
+        return [0x8A] + operando_memoria(REG8[destino[1]], fuente)
+
+    # mem, reg8.
+    if destino[0] == "mem" and fuente[0] == "reg":
+        return [0x88] + operando_memoria(REG8[fuente[1]], destino)
+
+    raise ErrorCodificador(
+        f"MOV de 8 bits no acepta {destino[0]} como destino y {fuente[0]} como fuente.",
+    )
 
 
 # MOV tiene muchas formas: se elige por los tipos de operando.
@@ -150,6 +196,9 @@ def _codificar_mov(
     fuente: Operando,
     forzar: str | None,
 ) -> list[int]:
+    if es_registro8(destino) or es_registro8(fuente):
+        return _codificar_mov8(destino, fuente)
+
     # reg, reg: 89 es lo normal (d = 0); 8B es la forma alterna (d = 1).
     if destino[0] == "reg" and fuente[0] == "reg":
         if forzar == "8b":
@@ -204,6 +253,21 @@ def _codificar_alu(
     opcode_rm_reg, opcode_reg_rm, opcode_ax_imm = ALUM[mnemonico]
     digito = DIGITO_ALU[mnemonico]
 
+    # Versión de 8 bits: solo hace falta "op r/m8, imm8" (80 /d), que es la que
+    # usa el print para pasar la cifra a ASCII con "ADD DL, 30H".
+    if es_registro8(destino) or es_registro8(fuente):
+        if fuente[0] != "imm":
+            raise ErrorCodificador(
+                f"{mnemonico} de 8 bits solo se codifica con un inmediato.",
+            )
+
+        valor = fuente[1]
+
+        if destino[0] == "reg" and destino[1] == "AL" and forzar is None:
+            return [opcode_ax_imm - 1] + bytes_de(valor, 1)
+
+        return [0x80] + operando_modrm(destino, digito) + bytes_de(valor, 1)
+
     # op AX, imm16: la forma corta cuando el destino es AX.
     if fuente[0] == "imm":
         valor = fuente[1]
@@ -242,8 +306,11 @@ def _codificar_alu(
     raise ErrorCodificador(f"{mnemonico} no acepta esa combinación de operandos.")
 
 
-# MUL y DIV: opcode F7 + /dígito + r/m16.
+# MUL y DIV: opcode F7 + /dígito + r/m16. Con un registro de 8 bits, F6.
 def _codificar_grupo_f7(mnemonico: str, operando: Operando) -> list[int]:
+    if es_registro8(operando):
+        return [0xF6] + operando_modrm(operando, GRUPO_F7[mnemonico])
+
     return [0xF7] + operando_modrm(operando, GRUPO_F7[mnemonico])
 
 
@@ -295,6 +362,13 @@ def codificar(
 
     if mnemonico in GRUPO_FF:
         return _codificar_grupo_ff(mnemonico, operandos[0])
+
+    # Interrupción por número: INT 21H -> CD 21.
+    if mnemonico == "INT":
+        if operandos[0][0] != "imm":
+            raise ErrorCodificador("INT necesita un número.")
+
+        return [0xCD] + bytes_de(operandos[0][1], 1)
 
     if mnemonico == "HLT":
         return [0xF4]

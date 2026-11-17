@@ -1,66 +1,87 @@
 import os
-from typing import Any
+from typing import Any, cast
 
 # App: une scanner -> parser -> semántico -> intermedio y sirve la GUI.
 # Lo de fuera no se confía: se revisa con isinstance o se devuelve 400.
-from flask import Flask, Response, jsonify, request, send_from_directory
+from flask import Flask, Response, jsonify, request
 from intermedio import ErrorIntermedio, generar_codigo_intermedio
 from objeto import generar_codigo_objeto
 from parser import Parser
 from scanner import analizar_lexico
 from semantico import AnalizadorSemantico
+from tokens import Token
 
 BASE_DIR: str = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FRONTEND_DIR: str = os.path.join(BASE_DIR, "frontend")
 
-app = Flask(__name__)
+# static_url_path="" sirve index.html, style.css y script.js sin tres rutas.
+app = Flask(__name__, static_folder=FRONTEND_DIR, static_url_path="")
 
 # Límite anti-DoS casero: rechaza POST gigantes con 413.
 app.config["MAX_CONTENT_LENGTH"] = 64 * 1024
 
+CODIGO_FALTANTE = "No se recibió código para analizar."
+
 
 @app.route("/")
 def index() -> Response:
-    return send_from_directory(FRONTEND_DIR, "index.html")
+    return app.send_static_file("index.html")
 
 
-@app.route("/style.css")
-def style() -> Response:
-    return send_from_directory(FRONTEND_DIR, "style.css")
+# Viene del navegador y puede venir roto: None si no hay código de texto.
+def leer_codigo() -> str | None:
+    datos: Any = request.get_json(silent=True)
+
+    if not isinstance(datos, dict):
+        return None
+
+    # El isinstance ya garantizó que es un dict; el cast solo le dice a pyright
+    # que las claves y los valores son de tipo conocido.
+    codigo = cast(dict[str, Any], datos).get("codigo")
+
+    if isinstance(codigo, str):
+        return codigo
+
+    return None
 
 
-@app.route("/script.js")
-def script() -> Response:
-    return send_from_directory(FRONTEND_DIR, "script.js")
+# Scanner + parser. Si una fase falla, la siguiente no se corre.
+def revisar_hasta_sintaxis(codigo: str) -> tuple[bool, list[str], list[Token]]:
+    tokens, errores = analizar_lexico(codigo)
+
+    if errores:
+        return False, errores, tokens
+
+    es_valido, errores = Parser(tokens).analizar()
+
+    return es_valido, errores, tokens
+
+
+# Scanner + parser + semántico. Devuelve también la tabla de tipos.
+def revisar_hasta_semantico(
+    codigo: str,
+) -> tuple[bool, list[str], list[Token], dict[str, str]]:
+    es_valido, errores, tokens = revisar_hasta_sintaxis(codigo)
+
+    if not es_valido:
+        return False, errores, tokens, {}
+
+    revisor_tipos = AnalizadorSemantico(tokens)
+
+    es_valido, errores = revisor_tipos.analizar()
+
+    return es_valido, errores, tokens, revisor_tipos.tabla
 
 
 # SCANNER
 @app.route("/analizar", methods=["POST"])
 def analizar() -> Response | tuple[Response, int]:
-    # Viene del navegador y puede venir roto: si no es dict/str va 400.
-    json_recibido: dict[str, Any] | None = request.get_json(silent=True)
+    codigo = leer_codigo()
 
-    if not isinstance(json_recibido, dict):
-        return jsonify(
-            {
-                "tokens": [],
-                "errores": ["No se recibió código para analizar."],
-            }
-        ), 400
+    if codigo is None:
+        return jsonify({"tokens": [], "errores": [CODIGO_FALTANTE]}), 400
 
-    codigo_bruto: Any = json_recibido.get("codigo")
-
-    if not isinstance(codigo_bruto, str):
-        return jsonify(
-            {
-                "tokens": [],
-                "errores": ["No se recibió código para analizar."],
-            }
-        ), 400
-
-    codigo_fuente: str = codigo_bruto
-
-    lista_tokens, lista_errores = analizar_lexico(codigo_fuente)
+    lista_tokens, lista_errores = analizar_lexico(codigo)
 
     return jsonify(
         {
@@ -73,199 +94,46 @@ def analizar() -> Response | tuple[Response, int]:
 # PARSER
 @app.route("/parser", methods=["POST"])
 def analizar_parser() -> Response | tuple[Response, int]:
-    # Viene del navegador y puede venir roto: si no es dict/str va 400.
-    json_recibido: dict[str, Any] | None = request.get_json(silent=True)
+    codigo = leer_codigo()
 
-    if not isinstance(json_recibido, dict):
-        return jsonify(
-            {
-                "ok": False,
-                "errores": ["No se recibió código para analizar."],
-            }
-        ), 400
+    if codigo is None:
+        return jsonify({"ok": False, "errores": [CODIGO_FALTANTE]}), 400
 
-    codigo_bruto: Any = json_recibido.get("codigo")
+    es_valido, errores, _ = revisar_hasta_sintaxis(codigo)
 
-    if not isinstance(codigo_bruto, str):
-        return jsonify(
-            {
-                "ok": False,
-                "errores": ["No se recibió código para analizar."],
-            }
-        ), 400
-
-    codigo_fuente: str = codigo_bruto
-
-    lista_tokens, lista_errores_lexico = analizar_lexico(codigo_fuente)
-
-    if lista_errores_lexico:
-        return jsonify(
-            {
-                "ok": False,
-                "errores": lista_errores_lexico,
-            }
-        )
-
-    revisor_sintaxis = Parser(lista_tokens)
-
-    es_valido, lista_errores = revisor_sintaxis.analizar()
-
-    return jsonify(
-        {
-            "ok": es_valido,
-            "errores": lista_errores,
-        }
-    )
+    return jsonify({"ok": es_valido, "errores": errores})
 
 
 # SEMÁNTICO
 @app.route("/semantico", methods=["POST"])
 def analizar_semantico() -> Response | tuple[Response, int]:
-    # Viene del navegador y puede venir roto: si no es dict/str va 400.
-    json_recibido: dict[str, Any] | None = request.get_json(silent=True)
+    codigo = leer_codigo()
 
-    if not isinstance(json_recibido, dict):
-        return jsonify(
-            {
-                "ok": False,
-                "errores": ["No se recibió código para analizar."],
-            }
-        ), 400
+    if codigo is None:
+        return jsonify({"ok": False, "errores": [CODIGO_FALTANTE]}), 400
 
-    codigo_bruto: Any = json_recibido.get("codigo")
+    es_valido, errores, _, _ = revisar_hasta_semantico(codigo)
 
-    if not isinstance(codigo_bruto, str):
-        return jsonify(
-            {
-                "ok": False,
-                "errores": ["No se recibió código para analizar."],
-            }
-        ), 400
-
-    codigo_fuente: str = codigo_bruto
-
-    # Scanner
-    lista_tokens, lista_errores_lexico = analizar_lexico(codigo_fuente)
-
-    if lista_errores_lexico:
-        return jsonify(
-            {
-                "ok": False,
-                "errores": lista_errores_lexico,
-            }
-        )
-
-    # Parser
-    revisor_sintaxis = Parser(lista_tokens)
-
-    es_valido, lista_errores_sintaxis = revisor_sintaxis.analizar()
-
-    if not es_valido:
-        return jsonify(
-            {
-                "ok": False,
-                "errores": lista_errores_sintaxis,
-            }
-        )
-
-    # Semántico
-    revisor_tipos = AnalizadorSemantico(lista_tokens)
-
-    es_valido, lista_errores = revisor_tipos.analizar()
-
-    return jsonify(
-        {
-            "ok": es_valido,
-            "errores": lista_errores,
-        }
-    )
+    return jsonify({"ok": es_valido, "errores": errores})
 
 
 # CÓDIGO INTERMEDIO
 @app.route("/intermedio", methods=["POST"])
 def generar_intermedio() -> Response | tuple[Response, int]:
-    # Viene del navegador y puede venir roto: si no es dict/str va 400.
-    json_recibido: dict[str, Any] | None = request.get_json(silent=True)
+    codigo = leer_codigo()
 
-    if not isinstance(json_recibido, dict):
-        return jsonify(
-            {
-                "ok": False,
-                "filas": [],
-                "mensaje": "",
-                "errores": ["No se recibió código para analizar."],
-            }
-        ), 400
+    if codigo is None:
+        return respuesta_sin_intermedio([CODIGO_FALTANTE]), 400
 
-    codigo_bruto: Any = json_recibido.get("codigo")
-
-    if not isinstance(codigo_bruto, str):
-        return jsonify(
-            {
-                "ok": False,
-                "filas": [],
-                "mensaje": "",
-                "errores": ["No se recibió código para analizar."],
-            }
-        ), 400
-
-    codigo_fuente: str = codigo_bruto
-
-    # 1. Scanner
-    lista_tokens, lista_errores_lexico = analizar_lexico(codigo_fuente)
-
-    if lista_errores_lexico:
-        return jsonify(
-            {
-                "ok": False,
-                "filas": [],
-                "mensaje": "",
-                "errores": lista_errores_lexico,
-            }
-        )
-
-    # 2. Parser
-    revisor_sintaxis = Parser(lista_tokens)
-
-    es_valido, lista_errores_sintaxis = revisor_sintaxis.analizar()
+    es_valido, errores, lista_tokens, tabla = revisar_hasta_semantico(codigo)
 
     if not es_valido:
-        return jsonify(
-            {
-                "ok": False,
-                "filas": [],
-                "mensaje": "",
-                "errores": lista_errores_sintaxis,
-            }
-        )
+        return respuesta_sin_intermedio(errores)
 
-    # 3. Semántico
-    revisor_tipos = AnalizadorSemantico(lista_tokens)
-
-    es_valido, lista_errores_tipos = revisor_tipos.analizar()
-
-    if not es_valido:
-        return jsonify(
-            {
-                "ok": False,
-                "filas": [],
-                "mensaje": "",
-                "errores": lista_errores_tipos,
-            }
-        )
-
-    # 4. Generar CI
     try:
-        filas = generar_codigo_intermedio(revisor_tipos.tabla, lista_tokens)
+        filas = generar_codigo_intermedio(tabla, lista_tokens)
     except ErrorIntermedio as error:
-        return jsonify(
-            {
-                "ok": False,
-                "filas": [],
-                "mensaje": "",
-                "errores": [str(error)],
-            }
-        )
+        return respuesta_sin_intermedio([str(error)])
 
     mensaje = ""
     if len(filas) == 0:
@@ -284,70 +152,41 @@ def generar_intermedio() -> Response | tuple[Response, int]:
 # CÓDIGO OBJETO
 @app.route("/objeto", methods=["POST"])
 def generar_objeto() -> Response | tuple[Response, int]:
-    # Igual que /intermedio: si llega algo roto, 400 y no se rompe nada.
-    json_recibido: dict[str, Any] | None = request.get_json(silent=True)
+    codigo = leer_codigo()
 
-    if not isinstance(json_recibido, dict):
-        return jsonify(
-            {
-                "ok": False,
-                "datos": [],
-                "codigo": [],
-                "errores": ["No se recibió código para analizar."],
-            }
-        ), 400
+    if codigo is None:
+        return respuesta_sin_objeto([CODIGO_FALTANTE]), 400
 
-    codigo_bruto: Any = json_recibido.get("codigo")
-
-    if not isinstance(codigo_bruto, str):
-        return jsonify(
-            {
-                "ok": False,
-                "datos": [],
-                "codigo": [],
-                "errores": ["No se recibió código para analizar."],
-            }
-        ), 400
-
-    codigo_fuente: str = codigo_bruto
-
-    # 1. Scanner
-    lista_tokens, lista_errores_lexico = analizar_lexico(codigo_fuente)
-
-    if lista_errores_lexico:
-        return respuesta_sin_objeto(lista_errores_lexico)
-
-    # 2. Parser
-    revisor_sintaxis = Parser(lista_tokens)
-
-    es_valido, lista_errores_sintaxis = revisor_sintaxis.analizar()
+    es_valido, errores, lista_tokens, tabla = revisar_hasta_semantico(codigo)
 
     if not es_valido:
-        return respuesta_sin_objeto(lista_errores_sintaxis)
+        return respuesta_sin_objeto(errores)
 
-    # 3. Semántico
-    revisor_tipos = AnalizadorSemantico(lista_tokens)
-
-    es_valido, lista_errores_tipos = revisor_tipos.analizar()
-
-    if not es_valido:
-        return respuesta_sin_objeto(lista_errores_tipos)
-
-    # 4. Generar código objeto
-    es_valido, datos, codigo, lista_errores_objeto = generar_codigo_objeto(
+    es_valido, datos, codigo_objeto, errores = generar_codigo_objeto(
         lista_tokens,
-        revisor_tipos.tabla,
+        tabla,
     )
 
     if not es_valido:
-        return respuesta_sin_objeto(lista_errores_objeto)
+        return respuesta_sin_objeto(errores)
 
     return jsonify(
         {
             "ok": True,
             "datos": datos,
-            "codigo": codigo,
+            "codigo": codigo_objeto,
             "errores": [],
+        }
+    )
+
+
+def respuesta_sin_intermedio(lista_errores: list[str]) -> Response:
+    return jsonify(
+        {
+            "ok": False,
+            "filas": [],
+            "mensaje": "",
+            "errores": lista_errores,
         }
     )
 

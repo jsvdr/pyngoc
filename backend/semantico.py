@@ -1,3 +1,5 @@
+from collections.abc import Callable
+
 from tokens import Token, TokenKind
 
 
@@ -251,48 +253,32 @@ class AnalizadorSemantico:
     # SUMA → TERMINO [ ( @ | # ) TERMINO ]*
     # Se junta al vuelo, sin árbol: llevo uno, llega otro.
     def suma(self) -> str | None:
-        tipo_acumulado = self.termino()
-
-        while self.token_actual_es(TokenKind.AT) or self.token_actual_es(
-            TokenKind.HASH
-        ):
-            operador = self.token_actual().lexeme
-            numero_linea = self.token_actual().line
-
-            self.avanzar()
-
-            tipo_nuevo = self.termino()
-
-            if tipo_acumulado is None or tipo_nuevo is None:
-                tipo_acumulado = None
-                continue
-
-            if tipo_acumulado != "int" or tipo_nuevo != "int":
-                self.error_tipo(
-                    numero_linea, f"El operador '{operador}' requiere valores int."
-                )
-
-                tipo_acumulado = None
-
-            else:
-                tipo_acumulado = "int"
-
-        return tipo_acumulado
+        return self.revisar_operacion((TokenKind.AT, TokenKind.HASH), self.termino)
 
     # TERMINO → FACTOR [ ( & | | ) FACTOR ]*
     # Se junta al vuelo, sin árbol: llevo uno, llega otro.
     def termino(self) -> str | None:
-        tipo_acumulado = self.factor()
+        return self.revisar_operacion(
+            (TokenKind.AMPERSAND, TokenKind.PIPE),
+            self.factor,
+        )
 
-        while self.token_actual_es(TokenKind.AMPERSAND) or self.token_actual_es(
-            TokenKind.PIPE
-        ):
+    # Recorre una cadena de operadores del mismo nivel (@ # o & |).
+    # Cada lado tiene que ser int; si no, se anota el error de esa línea.
+    def revisar_operacion(
+        self,
+        tipos_de_operador: tuple[TokenKind, ...],
+        leer_operando: Callable[[], str | None],
+    ) -> str | None:
+        tipo_acumulado = leer_operando()
+
+        while self.token_actual().kind in tipos_de_operador:
             operador = self.token_actual().lexeme
             numero_linea = self.token_actual().line
 
             self.avanzar()
 
-            tipo_nuevo = self.factor()
+            tipo_nuevo = leer_operando()
 
             if tipo_acumulado is None or tipo_nuevo is None:
                 tipo_acumulado = None

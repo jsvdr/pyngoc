@@ -68,6 +68,12 @@ ruff format --check backend/ tests/
 pyright
 ```
 
+`pyright` corre en modo `strict` con [`pyrightconfig.json`](pyrightconfig.json)
+y analiza solo `backend/` y `tests/`. En VSCode hay que abrir esta carpeta
+(`compiler/`) y elegir el intérprete `.venv/bin/python`: si el workspace es una
+carpeta de más arriba, Pylance no encuentra el config y marca los imports de
+`backend/` como errores.
+
 ## Fases (un botón por fase en la GUI)
 
 | Botón | Ruta | Salida OK |
@@ -163,6 +169,10 @@ Los bytes están verificados contra las tablas con tests unitarios.
   los mnemónicos quedan en inglés porque es vocabulario técnico.
 - **Sin dependencias de ejecución** más que Flask: `ruff`, `pyright` y `pytest`
   son de desarrollo (`requirements-dev.txt`).
+- **Tipado estricto, sin `Any` ni `type: ignore`.** `pyright` corre en `strict`
+  con avisos extra (override implícito, resultados de llamadas sin usar). Los
+  tipos del dominio viven en alias cortos: `Operando` (codificador), `Fila` y
+  `FilaPanel` (objeto).
 
 ## Ejemplo para probar
 

@@ -12,9 +12,9 @@ DECL        → DECL_VAR | ASIGNACION | IF | WHILE | PRINT
 DECL_VAR    → TIPO_DATO ID = EXPRESION
 ASIGNACION  → ID = EXPRESION
 
-IF          → if EXPRESION { LISTA_DECL } [ else { LISTA_DECL } ]
+IF          → if EXPRESION { LISTA_DECL }
 WHILE       → while EXPRESION { LISTA_DECL }
-PRINT       → print ( EXPRESION )
+PRINT       → print ( ID )
 
 TIPO_DATO   → int | bool
 
@@ -34,4 +34,5 @@ ID          → [a-z] [a-z0-9]*   (solo ASCII: sin mayúsculas ni 'ñ')
 ==       →  mismo tipo → bool
 > <      →  int, int → bool
 if/while →  la condición debe ser bool
+print    →  la variable debe ser int
 ```

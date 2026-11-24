@@ -348,9 +348,9 @@ def test_tamanos_de_salto():
 
 def test_imm8_fuera_de_rango():
     with pytest.raises(ErrorCodificador):
-        codificar("ADD", (reg("BX"), imm(300)), forzar="imm8")
+        _ = codificar("ADD", (reg("BX"), imm(300)), forzar="imm8")
 
 
 def test_inmediato_grande():
     with pytest.raises(ErrorCodificador):
-        codificar("MOV", (reg("AX"), imm(70000)))
+        _ = codificar("MOV", (reg("AX"), imm(70000)))

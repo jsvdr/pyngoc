@@ -273,7 +273,7 @@ def test_intermedio_rechaza_expresion_anidada() -> None:
     _, _, tabla = compilar_hasta_semantico(fuente)
 
     with pytest.raises(ErrorIntermedio):
-        generar_codigo_intermedio(tabla, lista_tokens)
+        _ = generar_codigo_intermedio(tabla, lista_tokens)
 
 
 def test_intermedio_rechaza_parentesis() -> None:
@@ -284,7 +284,7 @@ def test_intermedio_rechaza_parentesis() -> None:
     _, _, tabla = compilar_hasta_semantico(fuente)
 
     with pytest.raises(ErrorIntermedio):
-        generar_codigo_intermedio(tabla, lista_tokens)
+        _ = generar_codigo_intermedio(tabla, lista_tokens)
 
 
 def test_intermedio_rechaza_comparacion_compuesta() -> None:
@@ -295,7 +295,7 @@ def test_intermedio_rechaza_comparacion_compuesta() -> None:
     _, _, tabla = compilar_hasta_semantico(fuente)
 
     with pytest.raises(ErrorIntermedio):
-        generar_codigo_intermedio(tabla, lista_tokens)
+        _ = generar_codigo_intermedio(tabla, lista_tokens)
 
 
 # El paréntesis tiene que rodear toda la condición: "(a @ 1) > 2" no entra.
@@ -311,7 +311,7 @@ def test_intermedio_rechaza_parentesis_parcial_en_la_condicion() -> None:
         _, _, tabla = compilar_hasta_semantico(fuente)
 
         with pytest.raises(ErrorIntermedio):
-            generar_codigo_intermedio(tabla, lista_tokens)
+            _ = generar_codigo_intermedio(tabla, lista_tokens)
 
 
 def test_scanner_rechaza_identificadores_no_ascii() -> None:

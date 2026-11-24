@@ -48,7 +48,7 @@ class Generador(Recorrido):
 
     # ---------- sentencias ----------
 
-    def bloque(self) -> None:  # { LISTA_DECL }: sirve para el programa, if, else y while
+    def bloque(self) -> None:  # { LISTA_DECL }: sirve para el programa, if y while
         self.avanzar_si_es(T.LBRACE)
         while not self.token_actual_es(T.RBRACE) and not self.token_actual_es(T.EOF):
             self.decl()
@@ -133,7 +133,7 @@ class Generador(Recorrido):
         if self.token_actual().kind in SET_SI_CIERTO:
             raise ErrorIntermedio("En una comparación, los dos lados deben ser operandos simples.")
 
-    def comparar(self) -> int:  # a (== | > | <) b: deja los flags listos y devuelve el operador
+    def comparar(self) -> T:  # a (== | > | <) b: deja los flags listos y devuelve el operador
         self.cargar_en_ax(self.operando())
         operador = self.token_actual().kind
         self.avanzar()
@@ -185,7 +185,7 @@ class Generador(Recorrido):
         else:
             self.emitir(f"MOV AX, {operando}")
 
-    def exigir_simple(self, contexto: str, prohibidos: tuple) -> None:
+    def exigir_simple(self, contexto: str, prohibidos: tuple[T, ...]) -> None:
         if self.token_actual().kind in prohibidos:
             raise ErrorIntermedio(f"El lado derecho de {contexto} debe ser un operando simple.")
 

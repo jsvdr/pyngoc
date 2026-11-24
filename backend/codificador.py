@@ -1,9 +1,18 @@
 # Codificador: una instrucción x86 de 16 bits -> sus bytes (little endian).
 # Operando: ("reg","AX") · ("mem",0x0000) · ("mem","BX",2) · ("imm",5)
 # Formato:  [opcode] [ModR/M] [desplazamiento] [inmediato]
-from typing import TypeAlias
+from typing import Literal, TypeAlias
 
-Operando: TypeAlias = tuple
+# Cada forma que puede tener un operando en las tablas de abajo.
+Operando: TypeAlias = (
+    tuple[Literal["reg"], str]
+    | tuple[Literal["mem"], int]
+    | tuple[Literal["mem"], str, int]
+    | tuple[Literal["imm"], int]
+    | tuple[Literal["id"], str]
+    | tuple[Literal["num"], int]
+    | tuple[Literal["bool"], int]
+)
 
 
 class ErrorCodificador(Exception):
@@ -47,67 +56,68 @@ def modrm(mod: int, reg: int, rm: int) -> list[int]:
     return [(mod << 6) | (reg << 3) | rm]
 
 
-def operando_memoria(reg: int, operando: tuple) -> list[int]:
+def operando_memoria(reg: int, operando: Operando) -> list[int]:
     if len(operando) == 2:  # [dirección]: mod 00, r/m 110
-        return modrm(0b00, reg, 0b110) + bytes_de(operando[1], 2)
-    rm, desplazamiento = BASE_MEMORIA[operando[1]], operando[2]
+        return modrm(0b00, reg, 0b110) + bytes_de(int(operando[1]), 2)
+    rm, desplazamiento = BASE_MEMORIA[str(operando[1])], int(operando[2])
     if -128 <= desplazamiento <= 127:
         return modrm(0b01, reg, rm) + bytes_de(desplazamiento, 1)
     return modrm(0b10, reg, rm) + bytes_de(desplazamiento, 2)
 
 
-def operando_modrm(operando: tuple, reg: int) -> list[int]:
+def operando_modrm(operando: Operando, reg: int) -> list[int]:
     if operando[0] == "reg":
-        return modrm(0b11, reg, REG[operando[1]])
+        return modrm(0b11, reg, REG[str(operando[1])])
     return operando_memoria(reg, operando)
 
 
-def ancho(*operandos: tuple) -> int:
+def ancho(*operandos: Operando) -> int:
     """w = 0 si algún operando es de 8 bits, w = 1 si es de 16."""
-    return 0 if any(o[0] == "reg" and o[1] in REG8 for o in operandos) else 1
+    return 0 if any(o[0] == "reg" and str(o[1]) in REG8 for o in operandos) else 1
 
 
-def _mov(destino: tuple, fuente: tuple) -> list[int]:
+def _mov(destino: Operando, fuente: Operando) -> list[int]:
     w = ancho(destino, fuente)
     if destino[0] == "reg":
+        reg_dest = str(destino[1])
         if fuente[0] == "imm":  # B0/B8 + registro
-            return [0xB0 + 8 * w + REG[destino[1]]] + bytes_de(fuente[1], 1 + w)
+            return [0xB0 + 8 * w + REG[reg_dest]] + bytes_de(int(fuente[1]), 1 + w)
         if fuente[0] == "reg":  # 88/89: origen en reg, destino en r/m
-            return [0x88 + w] + modrm(0b11, REG[fuente[1]], REG[destino[1]])
-        if destino[1] == "AX" and len(fuente) == 2:  # A1: AX <- [dirección]
-            return [0xA1] + bytes_de(fuente[1], 2)
-        return [0x8A + w] + operando_memoria(REG[destino[1]], fuente)  # 8A/8B
+            return [0x88 + w] + modrm(0b11, REG[str(fuente[1])], REG[reg_dest])
+        if reg_dest == "AX" and len(fuente) == 2:  # A1: AX <- [dirección]
+            return [0xA1] + bytes_de(int(fuente[1]), 2)
+        return [0x8A + w] + operando_memoria(REG[reg_dest], fuente)  # 8A/8B
     if fuente[0] == "imm":  # C6/C7 /0
-        return [0xC6 + w] + operando_memoria(0, destino) + bytes_de(fuente[1], 1 + w)
-    if fuente[1] == "AX" and len(destino) == 2:  # A3: [dirección] <- AX
-        return [0xA3] + bytes_de(destino[1], 2)
-    return [0x88 + w] + operando_memoria(REG[fuente[1]], destino)  # 88/89
+        return [0xC6 + w] + operando_memoria(0, destino) + bytes_de(int(fuente[1]), 1 + w)
+    if str(fuente[1]) == "AX" and len(destino) == 2:  # A3: [dirección] <- AX
+        return [0xA3] + bytes_de(int(destino[1]), 2)
+    return [0x88 + w] + operando_memoria(REG[str(fuente[1])], destino)  # 88/89
 
 
-def _alu(mnemonico: str, destino: tuple, fuente: tuple, forzar: str | None) -> list[int]:
+def _alu(mnemonico: str, destino: Operando, fuente: Operando, forzar: str | None) -> list[int]:
     base, w = ALU[mnemonico], ancho(destino, fuente)
     if fuente[0] == "imm":
-        if destino[0] == "reg" and REG[destino[1]] == 0:  # AL / AX: forma corta
-            return [base + 4 + w] + bytes_de(fuente[1], 1 + w)
+        if destino[0] == "reg" and REG[str(destino[1])] == 0:  # AL / AX: forma corta
+            return [base + 4 + w] + bytes_de(int(fuente[1]), 1 + w)
         if forzar == "imm8":  # 83: inmediato de 1 byte con signo
-            return [0x83] + operando_modrm(destino, base >> 3) + bytes_de(fuente[1], 1)
-        return [0x80 + w] + operando_modrm(destino, base >> 3) + bytes_de(fuente[1], 1 + w)
+            return [0x83] + operando_modrm(destino, base >> 3) + bytes_de(int(fuente[1]), 1)
+        return [0x80 + w] + operando_modrm(destino, base >> 3) + bytes_de(int(fuente[1]), 1 + w)
     if fuente[0] == "mem":  # reg, mem
-        return [base + 2 + w] + operando_memoria(REG[destino[1]], fuente)
-    return [base + w] + operando_modrm(destino, REG[fuente[1]])  # r/m, reg
+        return [base + 2 + w] + operando_memoria(REG[str(destino[1])], fuente)
+    return [base + w] + operando_modrm(destino, REG[str(fuente[1])])  # r/m, reg
 
 
-def codificar(mnemonico: str, operandos: tuple, forzar: str | None = None) -> list[int]:
+def codificar(mnemonico: str, operandos: tuple[Operando, ...], forzar: str | None = None) -> list[int]:
     if mnemonico == "MOV":
-        return _mov(*operandos)
+        return _mov(operandos[0], operandos[1])
     if mnemonico in ALU:
-        return _alu(mnemonico, *operandos, forzar)
+        return _alu(mnemonico, operandos[0], operandos[1], forzar)
     if mnemonico in GRUPO_F7:
         return [0xF6 + ancho(*operandos)] + operando_modrm(operandos[0], GRUPO_F7[mnemonico])
     if mnemonico in ("PUSH", "POP"):
-        return [(0x50 if mnemonico == "PUSH" else 0x58) + REG[operandos[0][1]]]
+        return [(0x50 if mnemonico == "PUSH" else 0x58) + REG[str(operandos[0][1])]]
     if mnemonico == "INT":
-        return [0xCD] + bytes_de(operandos[0][1], 1)
+        return [0xCD] + bytes_de(int(operandos[0][1]), 1)
     if mnemonico in UN_BYTE:
         return [UN_BYTE[mnemonico]]
     raise ErrorCodificador(f"No sé codificar la instrucción {mnemonico}.")

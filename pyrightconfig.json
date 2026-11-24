@@ -1,7 +1,12 @@
 {
   "typeCheckingMode": "strict",
+  "include": ["backend", "tests"],
   "extraPaths": ["backend"],
   "pythonVersion": "3.12",
+  "reportImplicitOverride": "error",
+  "reportUninitializedInstanceVariable": "error",
+  "reportUnnecessaryTypeIgnoreComment": "error",
+  "reportUnusedCallResult": "error",
   "executionEnvironments": [
     { "root": "backend" },
     { "root": "tests", "extraPaths": ["backend"] }

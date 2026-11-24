@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from enum import IntEnum
+from typing import override
 
 
 # Tokens: qué es cada pedazo del texto (int, if, @, ...).
@@ -43,8 +44,10 @@ class Token:
     lexeme: str
     line: int
 
+    @override
     def __str__(self) -> str:
         return f"<TKN {self.kind.name} {self.lexeme}>"
 
+    @override
     def __repr__(self) -> str:
         return str(self)

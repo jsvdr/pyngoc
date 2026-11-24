@@ -1,8 +1,8 @@
 # Objeto: tokens + tabla -> bytes x86 de 16 bits. Cada expresión deja su resultado en AX.
-from collections import namedtuple
-from typing import Any, TypeAlias
+from collections.abc import Callable
+from typing import NamedTuple, TypeAlias, TypedDict
 
-from codificador import ErrorCodificador, codificar, codificar_salto
+from codificador import ErrorCodificador, Operando, codificar, codificar_salto
 from recorrido import Recorrido
 from tokens import Token
 from tokens import TokenKind as T
@@ -10,38 +10,69 @@ from tokens import TokenKind as T
 DATA_BASE = 0x0000  # DATOS y CÓDIGO son segmentos distintos: los dos empiezan en 0
 CODE_BASE = 0x0000
 
-AX, BX, DX, SP, AL, AH, DL = (("reg", r) for r in ("AX", "BX", "DX", "SP", "AL", "AH", "DL"))
+AX: Operando = ("reg", "AX")
+BX: Operando = ("reg", "BX")
+DX: Operando = ("reg", "DX")
+SP: Operando = ("reg", "SP")
+AL: Operando = ("reg", "AL")
+AH: Operando = ("reg", "AH")
+DL: Operando = ("reg", "DL")
 COMPARACIONES = {T.EQ: "JE", T.GREATER: "JA", T.LESS: "JB"}  # sin signo: valores 0..65535
 ARITMETICOS = (T.AT, T.HASH, T.AMPERSAND, T.PIPE)
 
-Etiqueta = namedtuple("Etiqueta", "nombre")
-Instruccion = namedtuple("Instruccion", "mnemonico operandos forzar texto")
-Salto = namedtuple("Salto", "mnemonico etiqueta")
 
-Fila: TypeAlias = dict[str, Any]
-FilaPanel: TypeAlias = dict[str, str]
+class Etiqueta(NamedTuple):
+    nombre: str
+
+
+class Instruccion(NamedTuple):
+    mnemonico: str
+    operandos: tuple[Operando, ...]
+    forzar: str | None
+    texto: str
+
+
+class Salto(NamedTuple):
+    mnemonico: str
+    etiqueta: str
+
+
+ItemObjeto: TypeAlias = Etiqueta | Instruccion | Salto
+
+
+class Fila(TypedDict):
+    direccion: int
+    bytes: list[int]
+    texto: str
+
+
+class FilaPanel(TypedDict):
+    direccion: str
+    contenido: str
+    hex: str
+    texto: str
 
 
 class ErrorObjeto(Exception):
     """Algo que esta fase no puede generar."""
 
 
-def imm(valor: int) -> tuple:
+def imm(valor: int) -> Operando:
     return ("imm", valor)
 
 
-def mem(direccion: int) -> tuple:
+def mem(direccion: int) -> Operando:
     return ("mem", direccion)
 
 
-def texto_de(operando: tuple) -> str:
+def texto_de(operando: Operando) -> str:
     if operando[0] == "reg":
-        return operando[1]
+        return str(operando[1])
     if operando[0] == "imm":
         return str(operando[1])
     if len(operando) == 2:
-        return f"[{operando[1]:04X}h]"
-    return f"[{operando[1]}{operando[2]:+d}]"
+        return f"[{int(operando[1]):04X}h]"
+    return f"[{operando[1]}{int(operando[2]):+d}]"
 
 
 class GeneradorObjeto(Recorrido):
@@ -56,7 +87,7 @@ class GeneradorObjeto(Recorrido):
         self.tiene_print = any(token.kind == T.PRINT for token in tokens)
         if self.tiene_print:  # COC y RESI: 1 byte cada una, después de las variables
             self.direcciones["COC"], self.direcciones["RESI"] = direccion, direccion + 1
-        self.items: list = []
+        self.items: list[ItemObjeto] = []
         self.numero_etiqueta = 0
 
     def generar(self) -> list[tuple[int, list[int], str]]:
@@ -68,7 +99,7 @@ class GeneradorObjeto(Recorrido):
 
     # ---------- sentencias ----------
 
-    def bloque(self) -> None:  # { LISTA_DECL }: sirve para el programa, if, else y while
+    def bloque(self) -> None:  # { LISTA_DECL }: sirve para el programa, if y while
         self.avanzar_si_es(T.LBRACE)
         while not self.token_actual_es(T.RBRACE) and not self.token_actual_es(T.EOF):
             self.decl()
@@ -165,14 +196,14 @@ class GeneradorObjeto(Recorrido):
     def termino(self) -> None:
         self.binaria({T.AMPERSAND: "MUL", T.PIPE: "DIV"}, self.factor)
 
-    def binaria(self, operadores: dict, siguiente) -> None:  # siguiente [ operador siguiente ]*
+    def binaria(self, operadores: dict[T, str], siguiente: Callable[[], None]) -> None:
         siguiente()
         while self.token_actual().kind in operadores:
             mnemonico = operadores[self.token_actual().kind]
             self.avanzar()
             self.operar(mnemonico, siguiente)
 
-    def operar(self, mnemonico: str, derecha) -> None:
+    def operar(self, mnemonico: str, derecha: Callable[[], None]) -> None:
         """AX = AX <mnemonico> lado derecho. MUL y DIV trabajan con BX."""
         simple, mul_div = self.es_simple(), mnemonico in ("MUL", "DIV")
         if simple and not mul_div:
@@ -217,7 +248,7 @@ class GeneradorObjeto(Recorrido):
             and self.tokens[self.posicion + 1].kind not in ARITMETICOS
         )
 
-    def fuente(self) -> tuple:  # ID -> [dirección] · NUM -> número · true / false -> 1 / 0
+    def fuente(self) -> Operando:  # ID -> [dirección] · NUM -> número · true / false -> 1 / 0
         token = self.token_actual()
         self.avanzar()
         if token.kind == T.ID:
@@ -234,7 +265,9 @@ class GeneradorObjeto(Recorrido):
 
     # ---------- emisión ----------
 
-    def emitir(self, mnemonico: str, *operandos: tuple, forzar: str | None = None, texto: str = "") -> None:
+    def emitir(
+        self, mnemonico: str, *operandos: Operando, forzar: str | None = None, texto: str = ""
+    ) -> None:
         partes = ", ".join(texto_de(operando) for operando in operandos)
         self.items.append(Instruccion(mnemonico, operandos, forzar, texto or f"{mnemonico} {partes}".strip()))
 
@@ -249,11 +282,13 @@ class GeneradorObjeto(Recorrido):
         return f"{prefijo}_{self.numero_etiqueta}"
 
 
-def ensamblar(items: list) -> list[tuple[int, list[int], str]]:
+def ensamblar(items: list[ItemObjeto]) -> list[tuple[int, list[int], str]]:
     """Dos pasadas: la 1 calcula direcciones; la 2 ya conoce los destinos de los saltos."""
     destinos: dict[str, int] = {}
+    filas: list[tuple[int, list[int], str]] = []
     for _ in range(2):
-        filas, posicion = [], CODE_BASE
+        filas = []
+        posicion = CODE_BASE
         for item in items:
             if isinstance(item, Etiqueta):
                 destinos[item.nombre] = posicion
@@ -280,7 +315,7 @@ def formatear_hex(codigo: list[int]) -> str:
     return " ".join(f"{byte:02X}" for byte in codigo)
 
 
-def fila(direccion: int, codigo: list[int], texto: str) -> dict[str, str]:
+def fila(direccion: int, codigo: list[int], texto: str) -> FilaPanel:
     """Una fila del panel: DIR y CONTENIDO en nibbles (4 bits), HEX en bytes."""
     return {
         "direccion": formatear_direccion(direccion),
@@ -290,7 +325,9 @@ def fila(direccion: int, codigo: list[int], texto: str) -> dict[str, str]:
     }
 
 
-def generar_codigo_objeto(tokens: list[Token], tabla: dict[str, str]):
+def generar_codigo_objeto(
+    tokens: list[Token], tabla: dict[str, str]
+) -> tuple[bool, list[FilaPanel], list[FilaPanel], list[str]]:
     generador = GeneradorObjeto(tokens, tabla)
     try:
         filas = generador.generar()

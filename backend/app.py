@@ -1,4 +1,6 @@
 import os
+from collections.abc import Mapping
+from typing import cast
 
 # App: une scanner -> parser -> semántico -> intermedio y sirve la GUI.
 # Lo de fuera no se confía: se revisa con isinstance o se devuelve 400.
@@ -29,12 +31,12 @@ def index() -> Response:
 
 # Viene del navegador y puede venir roto: None si no hay código de texto.
 def leer_codigo() -> str | None:
-    datos = request.get_json(silent=True)
+    datos: object = request.get_json(silent=True)
 
-    if not isinstance(datos, dict):
+    if not isinstance(datos, Mapping):
         return None
 
-    codigo = datos.get("codigo")  # type: ignore
+    codigo = cast(Mapping[str, object], datos).get("codigo")
 
     if isinstance(codigo, str):
         return codigo

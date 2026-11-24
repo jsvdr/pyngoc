@@ -3,18 +3,7 @@
 Se corre con:  pytest tests/ -q
 """
 
-import os
-import sys
-
 import pytest
-
-# Los tests importan el backend por ruta explícita a propósito:
-# así no hay que convertir backend/ en paquete ni tocar app.py.
-sys.path.insert(
-    0,
-    os.path.join(os.path.dirname(__file__), "..", "backend"),
-)
-
 from intermedio import ErrorIntermedio, generar_codigo_intermedio
 from parser import Parser
 from scanner import analizar_lexico

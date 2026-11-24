@@ -119,5 +119,5 @@ def codificar_salto(mnemonico: str, destino: int, posicion: int) -> list[int]:
     return opcode + bytes_de(destino - (posicion + len(opcode) + 2), 2)
 
 
-def tamano_salto(mnemonico: str, corto: bool = False) -> int:
+def tamano_salto(mnemonico: str) -> int:
     return 3 if mnemonico in ("CALL", "JMP") else 4

@@ -3,17 +3,7 @@
 Se corre con:  pytest tests/ -q
 """
 
-import os
-import sys
-
 import pytest
-
-# Igual que test_smoke.py: se importa el backend por ruta explícita.
-sys.path.insert(
-    0,
-    os.path.join(os.path.dirname(__file__), "..", "backend"),
-)
-
 from codificador import (
     ErrorCodificador,
     Operando,

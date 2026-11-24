@@ -65,19 +65,26 @@ cajaArchivo.addEventListener("change", (evento) => {
 // COMUNICACIÓN CON EL SERVIDOR
 // ==================================
 
+const botonesAccion = [btnTokens, btnParser, btnSemantico, btnCI, btnCO];
+
 // Envía el código fuente actual al endpoint indicado.
 async function enviarCodigo(ruta) {
-  const respuesta = await fetch(ruta, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      codigo: cajaCodigo.value,
-    }),
-  });
-  const datos = await respuesta.json();
-  return { okHttp: respuesta.ok, datos };
+  botonesAccion.forEach((b) => (b.disabled = true));
+  try {
+    const respuesta = await fetch(ruta, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        codigo: cajaCodigo.value,
+      }),
+    });
+    const datos = await respuesta.json();
+    return { okHttp: respuesta.ok, datos };
+  } finally {
+    botonesAccion.forEach((b) => (b.disabled = false));
+  }
 }
 
 // ==================================

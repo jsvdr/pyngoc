@@ -169,15 +169,10 @@ class AnalizadorSemantico(Recorrido):
 
     # TIPO_DATO → int | bool
     def tipo_dato(self) -> str | None:
-        if self.token_actual_es(TokenKind.INT):
+        tipo = {TokenKind.INT: "int", TokenKind.BOOL: "bool"}.get(self.token_actual().kind)
+        if tipo:
             self.avanzar()
-            return "int"
-
-        if self.token_actual_es(TokenKind.BOOL):
-            self.avanzar()
-            return "bool"
-
-        return None
+        return tipo
 
     # EXPRESION → SUMA [ ( == | > | < ) SUMA ]
     def expresion(self) -> str | None:

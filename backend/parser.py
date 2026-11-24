@@ -1,16 +1,14 @@
+from recorrido import Recorrido
 from tokens import Token, TokenKind
 
 
 # Parser: lista_tokens -> Syntax OK o lista de errores. Solo revisa.
 # Cada método calca una regla de gramatica.md, no devuelve nada.
-class Parser:
-    tokens: list[Token]
-    posicion: int
+class Parser(Recorrido):
     errores: list[str]
 
     def __init__(self, tokens: list[Token]) -> None:
-        self.tokens = tokens
-        self.posicion = 0
+        super().__init__(tokens)
         self.errores = []
 
     def analizar(self) -> tuple[bool, list[str]]:
@@ -35,9 +33,7 @@ class Parser:
     # LISTA_DECL → [ DECL ; ]*
     # Para en } o EOF para no leer de más.
     def lista_decl(self) -> None:
-        while not self.token_actual_es(TokenKind.RBRACE) and not self.token_actual_es(
-            TokenKind.EOF
-        ):
+        while not self.token_actual_es(TokenKind.RBRACE) and not self.token_actual_es(TokenKind.EOF):
             self.decl()
 
             self.consumir(TokenKind.SEMICOLON, "Se esperaba ';'.")
@@ -46,28 +42,17 @@ class Parser:
     def decl(self) -> None:
         if self.token_actual_es(TokenKind.INT) or self.token_actual_es(TokenKind.BOOL):
             self.decl_var()
-            return
-
-        if self.token_actual_es(TokenKind.ID):
+        elif self.token_actual_es(TokenKind.ID):
             self.asignacion()
-            return
-
-        if self.token_actual_es(TokenKind.IF):
+        elif self.token_actual_es(TokenKind.IF):
             self.if_stmt()
-            return
-
-        if self.token_actual_es(TokenKind.WHILE):
+        elif self.token_actual_es(TokenKind.WHILE):
             self.while_stmt()
-            return
-
-        if self.token_actual_es(TokenKind.PRINT):
+        elif self.token_actual_es(TokenKind.PRINT):
             self.print_stmt()
-            return
-
-        self.anotar_error(f"Declaración no válida: '{self.token_actual().lexeme}'.")
-
-        # Si no se reconoce, se avanza para no atorarse.
-        self.avanzar()
+        else:
+            self.anotar_error(f"Declaración no válida: '{self.token_actual().lexeme}'.")
+            self.avanzar()
 
     # DECL_VAR → TIPO_DATO ID = EXPRESION
     def decl_var(self) -> None:
@@ -87,7 +72,7 @@ class Parser:
 
         self.expresion()
 
-    # IF → if EXPRESION { LISTA_DECL } [else { LISTA_DECL }]
+    # IF → if EXPRESION { LISTA_DECL }
     def if_stmt(self) -> None:
         self.consumir(TokenKind.IF, "Se esperaba 'if'.")
 
@@ -98,15 +83,6 @@ class Parser:
         self.lista_decl()
 
         self.consumir(TokenKind.RBRACE, "Se esperaba '}'.")
-
-        if self.token_actual_es(TokenKind.ELSE):
-            self.avanzar()
-
-            self.consumir(TokenKind.LBRACE, "Se esperaba '{' después de 'else'.")
-
-            self.lista_decl()
-
-            self.consumir(TokenKind.RBRACE, "Se esperaba '}'.")
 
     # WHILE → while EXPRESION { LISTA_DECL }
     def while_stmt(self) -> None:
@@ -120,13 +96,13 @@ class Parser:
 
         self.consumir(TokenKind.RBRACE, "Se esperaba '}'.")
 
-    # PRINT → print ( EXPRESION )
+    # PRINT → print ( ID )
     def print_stmt(self) -> None:
         self.consumir(TokenKind.PRINT, "Se esperaba 'print'.")
 
         self.consumir(TokenKind.LPAREN, "Se esperaba '('.")
 
-        self.expresion()
+        self.consumir(TokenKind.ID, "print solo acepta una variable.")
 
         self.consumir(TokenKind.RPAREN, "Se esperaba ')'.")
 
@@ -154,9 +130,7 @@ class Parser:
     def suma(self) -> None:
         self.termino()
 
-        while self.token_actual_es(TokenKind.AT) or self.token_actual_es(
-            TokenKind.HASH
-        ):
+        while self.token_actual_es(TokenKind.AT) or self.token_actual_es(TokenKind.HASH):
             self.avanzar()
             self.termino()
 
@@ -164,9 +138,7 @@ class Parser:
     def termino(self) -> None:
         self.factor()
 
-        while self.token_actual_es(TokenKind.AMPERSAND) or self.token_actual_es(
-            TokenKind.PIPE
-        ):
+        while self.token_actual_es(TokenKind.AMPERSAND) or self.token_actual_es(TokenKind.PIPE):
             self.avanzar()
             self.factor()
 
@@ -190,9 +162,7 @@ class Parser:
 
             return
 
-        self.anotar_error(
-            f"Se esperaba un FACTOR, pero se encontró '{self.token_actual().lexeme}'."
-        )
+        self.anotar_error(f"Se esperaba un FACTOR, pero se encontró '{self.token_actual().lexeme}'.")
 
     # Si es lo esperado avanza, si no anota el error.
     def consumir(self, kind_esperado: TokenKind, mensaje_error: str) -> None:
@@ -201,17 +171,6 @@ class Parser:
             return
 
         self.anotar_error(mensaje_error)
-
-    def token_actual_es(self, kind_esperado: TokenKind) -> bool:
-        return self.token_actual().kind == kind_esperado
-
-    def token_actual(self) -> Token:
-        return self.tokens[self.posicion]
-
-    def avanzar(self) -> None:
-        # No pasa del último para no salirse de la lista.
-        if self.posicion < len(self.tokens) - 1:
-            self.posicion += 1
 
     def anotar_error(self, texto_error: str) -> None:
         token = self.token_actual()

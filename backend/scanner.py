@@ -5,13 +5,12 @@ from tokens import Token, TokenKind
 
 # Un identificador es minúscula seguida de minúsculas o dígitos, solo ASCII.
 # A propósito NO se usa str.isalpha()/str.isalnum(): esas funciones de Python
-# aceptan 'ñ', 'á' o '²', y esos nombres romperían el ensamblador.
+# aceptan 'ñ', 'á' o '²', y esos nombres romperían la compatibilidad.
 LETRAS = "abcdefghijklmnopqrstuvwxyz"
 DIGITOS = "0123456789"
 
 PALABRAS_RESERVADAS: dict[str, TokenKind] = {
     "if": TokenKind.IF,
-    "else": TokenKind.ELSE,
     "while": TokenKind.WHILE,
     "print": TokenKind.PRINT,
     "int": TokenKind.INT,
@@ -62,9 +61,7 @@ def analizar_lexico(texto_fuente: str) -> tuple[list[Token], list[str]]:
         if caracter in LETRAS:
             pos_inicio = pos
 
-            while pos < len(texto_fuente) and (
-                texto_fuente[pos] in LETRAS or texto_fuente[pos] in DIGITOS
-            ):
+            while pos < len(texto_fuente) and (texto_fuente[pos] in LETRAS or texto_fuente[pos] in DIGITOS):
                 pos += 1
 
             palabra = texto_fuente[pos_inicio:pos]
@@ -89,11 +86,7 @@ def analizar_lexico(texto_fuente: str) -> tuple[list[Token], list[str]]:
             continue
 
         # "==" son 2 letras: se mira pos+1 o se confunde con "=".
-        if (
-            caracter == "="
-            and pos + 1 < len(texto_fuente)
-            and texto_fuente[pos + 1] == "="
-        ):
+        if caracter == "=" and pos + 1 < len(texto_fuente) and texto_fuente[pos + 1] == "=":
             tokens.append(Token(TokenKind.EQ, "==", numero_linea))
 
             pos += 2

@@ -1,423 +1,350 @@
+/* Pyngo - hoja de estilo para proyector.
+   Base 1920x1080 (script.js la escala a otras pantallas con zoom). */
+
+:root {
+  --fondo: #F3F4F6;
+  --panel: #E2E8F0;
+  --borde: #CBD5E1;
+  --tinta: #111827;
+  --tinta-suave: #475569;
+  --azul: #1D4ED8;
+  --azul-hover: #1E40AF;
+  --azul-activo: #1E3A8A;
+  --encabezado: #F1F5F9;
+  --cebra: #EEF2F7;
+  --linea: #94A3B8;
+  --foco: #F59E0B;
+  --error-fondo: #FEE2E2;
+  --error-texto: #991B1B;
+  --error-borde: #DC2626;
+  --mono: Consolas, "Cascadia Mono", "Courier New", monospace;
+}
+
 * {
   box-sizing: border-box;
 }
 
+html {
+  background: var(--fondo);
+}
 
 body {
   margin: 0;
-
-  min-height: 100vh;
-
   font-family: Arial, sans-serif;
-
-  background-color: #f5f5f5;
-
-  color: #111;
+  color: var(--tinta);
 }
 
-
+/* ---------- Pantalla: 24px de margen, 16px entre cajas ----------
+   Fila superior: 528 | 528 | 784.  Fila inferior: 50% | 50%.
+   Filas: 320px y 696px. */
 .app {
-  width: 100%;
-  height: 100vh;
-
+  width: 1920px;
+  height: 1080px;
+  margin: 0 auto;
+  padding: 24px;
   display: grid;
-
-  grid-template-columns:
-    1fr
-    1fr
-    1fr
-    1fr
-    1fr
-    1fr;
-
-  grid-template-rows:
-    1fr
-    1fr;
-
-  gap: 20px;
-
-  padding: 20px;
+  grid-template-rows: 320px 696px;
+  gap: 16px;
 }
 
-
-.programa-panel,
-.tokens-panel,
-.errores-panel {
-  grid-column: span 2;
+.fila-superior {
+  display: grid;
+  grid-template-columns: 528px 528px 1fr;
+  gap: 16px;
+  min-width: 0;
+  min-height: 0;
 }
 
+.fila-inferior {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  min-width: 0;
+  min-height: 0;
+}
 
+/* ---------- Cajas ---------- */
 .panel {
   min-width: 0;
   min-height: 0;
-
   display: flex;
-
   flex-direction: column;
-
-  padding: 15px;
-
-  background-color: #e0e0e0;
-
-  border-radius: 10px;
+  padding: 16px;
+  background: var(--panel);
+  border: 2px solid var(--borde);
+  border-radius: 12px;
 }
-
 
 .panel-header {
-  flex-shrink: 0;
+  flex: 0 0 44px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 10px;
 }
-
 
 .panel h2 {
-  margin: 0 0 10px;
-
-  font-size: 20px;
-
-  font-weight: bold;
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
 }
 
-
-.file-button {
-  display: block;
-
-  width: 100%;
-
-  padding: 12px;
-
-  margin-bottom: 10px;
-
-  border-radius: 6px;
-
-  background-color: #1f6aa5;
-
-  color: white;
-
-  text-align: center;
-
-  font-size: 18px;
-
+/* ---------- Botones: 44px de alto, 22px ---------- */
+.file-button,
+.main-button,
+.analysis-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 44px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--azul);
+  color: #FFFFFF;
+  font: 700 22px Arial, sans-serif;
   cursor: pointer;
 }
 
+.file-button {
+  flex: 1;
+  margin: 0;
+}
+
+.main-button {
+  flex: 0 0 44px;
+  width: 100%;
+  margin-bottom: 10px;
+}
+
+.analysis-buttons {
+  flex: 0 0 44px;
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.analysis-button {
+  flex: 1;
+}
 
 .file-button:hover,
 .main-button:hover,
 .analysis-button:hover {
-  background-color: #144d75;
+  background: var(--azul-hover);
 }
 
-
-.main-button,
-.analysis-button {
-  border: none;
-
-  border-radius: 6px;
-
-  color: white;
-
-  font-size: 18px;
-
-  font-weight: bold;
-
-  cursor: pointer;
+.main-button:active,
+.analysis-button:active {
+  background: var(--azul-activo);
 }
 
-
-.main-button {
-  width: 100%;
-
-  padding: 12px;
-
-  margin-bottom: 10px;
-
-  background-color: #1f6aa5;
-
-  flex-shrink: 0;
+.main-button:focus-visible,
+.analysis-button:focus-visible {
+  outline: 3px solid var(--foco);
+  outline-offset: 2px;
 }
 
-
-.analysis-buttons {
-  display: flex;
-
-  gap: 10px;
-
-  margin-bottom: 10px;
-
-  flex-shrink: 0;
-}
-
-
-.analysis-button {
-  flex: 1;
-
-  padding: 12px;
-
-  background-color: #1f6aa5;
-}
-
-
+/* ---------- Cuadros de texto: 22px, interlineado 1.5 ---------- */
 textarea {
-  width: 100%;
-
   flex: 1;
-
   min-height: 0;
-
-  padding: 15px;
-
+  width: 100%;
+  padding: 12px 16px;
   resize: none;
-
-  border: none;
-
+  border: 2px solid var(--borde);
+  border-radius: 8px;
   outline: none;
-
-  border-radius: 6px;
-
-  background-color: white;
-
-  font-family:
-    Consolas,
-    "Courier New",
-    monospace;
-
-  font-size: 20px;
-
-  line-height: 1.6;
+  background: #FFFFFF;
+  color: var(--tinta);
+  font: 22px/1.5 var(--mono);
 }
 
+textarea:focus {
+  border-color: var(--azul);
+}
+
+textarea::placeholder {
+  color: #64748B;
+}
 
 #tokens {
-  color: #003366;
+  color: var(--azul-activo);
 }
-
 
 #errores {
-  color: #cc0000;
+  color: var(--error-texto);
 }
 
+/* ---------- Contenedores de tabla (CI y CO) ---------- */
+.tabla-ci-contenedor,
+.co-tabla-contenedor {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  background: #FFFFFF;
+  border: 2px solid var(--borde);
+  border-radius: 8px;
+}
 
 .tabla-ci-contenedor {
-  flex: 1;
-
-  min-height: 0;
-
-  overflow: auto;
-
-  padding: 15px;
-
-  border-radius: 6px;
-
-  background-color: white;
+  padding: 0 16px 12px;
 }
 
-
-.tabla-ci {
+.tabla-ci,
+.tabla-co {
   width: 100%;
-
-  table-layout: fixed;
-
   border-collapse: collapse;
-
-  font-family:
-    Consolas,
-    "Courier New",
-    monospace;
-
-  font-size: 20px;
-
-  line-height: 1.6;
-
-  color: #111;
+  font: 20px/1.35 var(--mono);
+  color: var(--tinta);
 }
 
-
-/* Las 3 columnas ocupan exactamente un tercio cada una. */
 .tabla-ci th,
-.tabla-ci td {
-  width: 33.33%;
-
-  padding: 2px 8px;
-
+.tabla-ci td,
+.tabla-co th,
+.tabla-co td {
+  padding: 3px 8px;
   text-align: left;
-
   vertical-align: top;
+}
 
+.tabla-ci th,
+.tabla-co th {
+  position: sticky;
+  top: 0;
+  background: var(--encabezado);
+  border-bottom: 2px solid var(--linea);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+/* ---------- CI: columnas 34% | 28% | 38% ---------- */
+.tabla-ci {
+  table-layout: fixed;
+}
+
+.tabla-ci th:nth-child(1) {
+  width: 34%;
+}
+
+.tabla-ci th:nth-child(2) {
+  width: 28%;
+}
+
+.tabla-ci th:nth-child(3) {
+  width: 38%;
+}
+
+.tabla-ci td {
   overflow-wrap: anywhere;
 }
 
-
-.tabla-ci th {
-  color: #111;
-
-  border-bottom: 2px solid #999;
-}
-
-
-/* Fila vacía: solo separa secciones. */
 .tabla-ci tr.separador td {
   height: 12px;
-
   padding: 0;
 }
 
-
-.errores-panel {
-  background-color: #e0e0e0;
+/* ---------- CO: DATOS arriba y CÓDIGO abajo, separados por 4px ----------
+   Las columnas se miden en caracteres (ch): 19 + 20 + 5 y 19 + 42 + 11. */
+.co-grupo {
+  padding: 12px 8px 16px;
 }
 
-
-.ci-panel {
-  grid-column: span 3;
-  grid-row: 2;
-
-  background-color: #e0e0e0;
+.co-grupo:last-child {
+  border-top: 4px solid var(--linea);
 }
 
-
-/* ==================================
-   CÓDIGO OBJETO
-   ================================== */
-
-/* Mismo cuadrante que el CI, pero a la derecha. */
-.co-panel {
-  grid-column: span 3;
-  grid-row: 2;
-
-  background-color: #e0e0e0;
+.co-grupo h3 {
+  display: inline-block;
+  margin: 0 0 10px;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 20px;
+  letter-spacing: 0.06em;
 }
 
+.co-grupo:first-child h3 {
+  background: #FEF3C7;
+  color: #78350F;
+}
 
+.co-grupo:last-child h3 {
+  background: #DBEAFE;
+  color: #1E3A8A;
+}
+
+.tabla-co {
+  table-layout: fixed;
+}
+
+.tabla-co th,
+.tabla-co td {
+  white-space: pre;
+}
+
+.tabla-co tbody tr:nth-child(even) {
+  background: var(--cebra);
+}
+
+.tabla-co td:nth-child(1) {
+  color: var(--tinta-suave);
+}
+
+.tabla-co td:nth-child(3) {
+  color: var(--azul);
+  font-weight: 700;
+}
+
+.tabla-co th:nth-child(1),
+.tabla-co td:nth-child(1) {
+  width: calc(19ch + 16px);
+}
+
+.co-grupo:first-child .tabla-co {
+  width: calc(44ch + 48px);
+}
+
+.co-grupo:first-child .tabla-co th:nth-child(2),
+.co-grupo:first-child .tabla-co td:nth-child(2) {
+  width: calc(20ch + 16px);
+}
+
+.co-grupo:first-child .tabla-co th:nth-child(3),
+.co-grupo:first-child .tabla-co td:nth-child(3) {
+  width: calc(5ch + 16px);
+}
+
+.co-grupo:last-child .tabla-co th:nth-child(3),
+.co-grupo:last-child .tabla-co td:nth-child(3) {
+  width: calc(11ch + 16px);
+}
+
+/* ---------- Errores del CO ---------- */
 .co-error {
   flex-shrink: 0;
-
   margin-bottom: 10px;
-
-  color: #cc0000;
-
-  font-family:
-    Consolas,
-    "Courier New",
-    monospace;
-
-  font-size: 18px;
-
+  color: var(--error-texto);
+  font: 20px/1.5 var(--mono);
   white-space: pre-wrap;
 }
 
-
-/* Sin texto no ocupa lugar. */
 .co-error:empty {
   display: none;
 }
 
-
-/* Con errores, que se vean bien: no es solo un renglón perdido. */
 .co-error:not(:empty) {
-  padding: 10px 12px;
-
-  border-left: 4px solid #cc0000;
-
-  background-color: #fdecea;
-
-  border-radius: 4px;
-}
-
-
-/* Un solo recuadro blanco con un único scroll: baja DATOS y después CÓDIGO. */
-.co-tabla-contenedor {
-  flex: 1;
-
-  min-height: 0;
-
-  overflow: auto;
-
-  background-color: white;
-
+  padding: 10px 14px;
+  border-left: 6px solid var(--error-borde);
   border-radius: 6px;
+  background: var(--error-fondo);
 }
 
-
-/* Cada sección ocupa su altura natural: no tiene scroll propio. */
-.co-grupo {
-  padding: 15px;
+/* ---------- Barras de desplazamiento visibles en proyector ---------- */
+*::-webkit-scrollbar {
+  width: 14px;
+  height: 14px;
 }
 
-
-.co-grupo h3 {
-  margin: 0 0 10px;
-
-  font-size: 18px;
-}
-
-
-/* Separador horizontal: DATOS arriba, CÓDIGO abajo. */
-.co-grupo + .co-grupo {
-  border-top: 2px solid #999;
-}
-
-
-.tabla-co {
-  width: 100%;
-
-  border-collapse: collapse;
-
-  font-family:
-    Consolas,
-    "Courier New",
-    monospace;
-
-  font-size: 18px;
-
-  line-height: 1.6;
-
-  color: #111;
-}
-
-
-.tabla-co th,
-.tabla-co td {
-  padding: 2px 8px;
-
-  text-align: left;
-
-  vertical-align: top;
-
-  /* pre y no nowrap: conserva el doble espacio entre bytes. */
-  white-space: pre;
-}
-
-
-.tabla-co th {
-  border-bottom: 2px solid #999;
-}
-
-
-/* CONTENIDO se queda con todo el ancho sobrante: es la parte más grande. */
-.tabla-co th:nth-child(2),
-.tabla-co td:nth-child(2) {
-  width: 100%;
-}
-
-
-@media (max-width: 1100px) {
-
-  .app {
-    height: auto;
-
-    min-height: 100vh;
-
-    grid-template-columns: 1fr;
-
-    grid-template-rows: none;
-  }
-
-
-  .panel,
-  .ci-panel {
-    grid-column: auto;
-    grid-row: auto;
-
-    min-height: 400px;
-  }
-
+*::-webkit-scrollbar-thumb {
+  background: var(--linea);
+  border-radius: 7px;
 }

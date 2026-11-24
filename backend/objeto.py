@@ -1,642 +1,242 @@
-# Objeto: tokens + tabla -> código máquina x86 de 16 bits.
-#
-# Igual que intermedio.py, no hay árbol: se recorren los tokens copiando la
-# forma del parser. Cada expresión deja su resultado en AX.
-#
-# El programa se arma en dos pasadas:
-#   1. Se calculan las direcciones suponiendo saltos cortos.
-#   2. Si algún salto no entra en -128..127, se pasa a cercano y se repite.
-# Al final se codifican los bytes y se formatean para el panel.
+# Objeto: tokens + tabla -> bytes x86 de 16 bits. Cada expresión deja su resultado en AX.
+from collections import namedtuple
+from typing import Any, TypeAlias
 
-from typing import TypeAlias, TypedDict
+from codificador import ErrorCodificador, codificar, codificar_salto
+from recorrido import Recorrido
+from tokens import Token
+from tokens import TokenKind as T
 
-from codificador import (
-    ErrorCodificador,
-    Operando,
-    codificar,
-    codificar_salto,
-    tamano_salto,
-)
-from tokens import Token, TokenKind
-
-DATA_BASE = 0x2000
+DATA_BASE = 0x0000  # DATOS y CÓDIGO son segmentos distintos: los dos empiezan en 0
 CODE_BASE = 0x0000
 
-BYTES_POR_VARIABLE = 2
+AX, BX, DX, SP, AL, AH, DL = (("reg", r) for r in ("AX", "BX", "DX", "SP", "AL", "AH", "DL"))
+COMPARACIONES = {T.EQ: "JE", T.GREATER: "JA", T.LESS: "JB"}  # sin signo: valores 0..65535
+ARITMETICOS = (T.AT, T.HASH, T.AMPERSAND, T.PIPE)
+
+Etiqueta = namedtuple("Etiqueta", "nombre")
+Instruccion = namedtuple("Instruccion", "mnemonico operandos forzar texto")
+Salto = namedtuple("Salto", "mnemonico etiqueta")
+
+Fila: TypeAlias = dict[str, Any]
+FilaPanel: TypeAlias = dict[str, str]
 
 
 class ErrorObjeto(Exception):
     """Algo que esta fase no puede generar."""
 
 
-class Fila(TypedDict):
-    direccion: int
-    bytes: list[int]
-    texto: str
+def imm(valor: int) -> tuple:
+    return ("imm", valor)
 
 
-class FilaPanel(TypedDict):
-    direccion: str
-    contenido: str
-    hex: str
-    texto: str
+def mem(direccion: int) -> tuple:
+    return ("mem", direccion)
 
 
-class Etiqueta:
-    def __init__(self, nombre: str) -> None:
-        self.nombre = nombre
+def texto_de(operando: tuple) -> str:
+    if operando[0] == "reg":
+        return operando[1]
+    if operando[0] == "imm":
+        return str(operando[1])
+    if len(operando) == 2:
+        return f"[{operando[1]:04X}h]"
+    return f"[{operando[1]}{operando[2]:+d}]"
 
 
-class Instruccion:
-    def __init__(
-        self,
-        mnemonico: str,
-        operandos: tuple[Operando, ...],
-        forzar: str | None,
-        texto: str,
-    ) -> None:
-        self.mnemonico = mnemonico
-        self.operandos = operandos
-        self.forzar = forzar
-        self.texto = texto
-
-
-class Salto:
-    def __init__(self, mnemonico: str, etiqueta: str) -> None:
-        self.mnemonico = mnemonico
-        self.etiqueta = etiqueta
-        # CALL no tiene versión corta.
-        self.corto = mnemonico != "CALL"
-
-
-# Un elemento del programa: etiqueta, instrucción o salto a resolver.
-Item: TypeAlias = Etiqueta | Instruccion | Salto
-
-
-class GeneradorObjeto:
-    tokens: list[Token]
-    posicion: int
-    tabla: dict[str, str]
-    direcciones: dict[str, int]
-    items: list[Item]
-    errores: list[str]
-    numero_etiqueta: int
-    tiene_print: bool
-
+class GeneradorObjeto(Recorrido):
     def __init__(self, tokens: list[Token], tabla: dict[str, str]) -> None:
-        self.tokens = tokens
-        self.posicion = 0
+        super().__init__(tokens)
         self.tabla = tabla
-        self.errores = []
+        self.direcciones: dict[str, int] = {}
+        direccion = DATA_BASE
+        for nombre, tipo in tabla.items():  # int: 2 bytes · bool: 1 byte
+            self.direcciones[nombre] = direccion
+            direccion += 1 if tipo == "bool" else 2
+        self.tiene_print = any(token.kind == T.PRINT for token in tokens)
+        if self.tiene_print:  # COC y RESI: 1 byte cada una, después de las variables
+            self.direcciones["COC"], self.direcciones["RESI"] = direccion, direccion + 1
+        self.items: list = []
         self.numero_etiqueta = 0
 
-        # Las variables van en orden de declaración: 2000h, 2002h, ...
-        self.direcciones = {}
-
-        for posicion, nombre in enumerate(tabla):
-            self.direcciones[nombre] = DATA_BASE + BYTES_POR_VARIABLE * posicion
-
-        # COC y RESI son las dos celdas de 1 byte donde el print parte el
-        # número (decenas y unidades), igual que en el código intermedio.
-        self.tiene_print = any(token.kind == TokenKind.PRINT for token in tokens)
-
-        if self.tiene_print:
-            base_print = DATA_BASE + BYTES_POR_VARIABLE * len(tabla)
-            self.direcciones["COC"] = base_print
-            self.direcciones["RESI"] = base_print + 1
-
-        self.items: list[Item] = []
-
-    def generar(self) -> tuple[list[Item], list[str]]:
-        self.programa()
-
-        if not self.token_actual_es(TokenKind.EOF):
-            self.anotar_error(self.token_actual().line, "Se esperaba el final.")
-
-        # Fin del programa. La rutina de impresión solo existe si hay algún
-        # CALL que la use: sin print, no hace falta la etiqueta ni el RET.
-        self.emitir("HLT", ())
-
+    def generar(self) -> list[tuple[int, list[int], str]]:
+        self.bloque()
+        self.emitir("HLT")
         if self.tiene_print:
             self.rutina_print()
+        return ensamblar(self.items)
 
-        return self.items, self.errores
+    # ---------- sentencias ----------
 
-    # PROGRAMA → { LISTA_DECL }
-    def programa(self) -> None:
-        self.avanzar_si_es(TokenKind.LBRACE)
-
-        self.lista_decl()
-
-        self.avanzar_si_es(TokenKind.RBRACE)
-
-    # LISTA_DECL → [ DECL ; ]*
-    def lista_decl(self) -> None:
-        while not self.token_actual_es(TokenKind.RBRACE) and not self.token_actual_es(
-            TokenKind.EOF
-        ):
+    def bloque(self) -> None:  # { LISTA_DECL }: sirve para el programa, if, else y while
+        self.avanzar_si_es(T.LBRACE)
+        while not self.token_actual_es(T.RBRACE) and not self.token_actual_es(T.EOF):
             self.decl()
+            self.avanzar_si_es(T.SEMICOLON)
+        self.avanzar_si_es(T.RBRACE)
 
-            self.avanzar_si_es(TokenKind.SEMICOLON)
-
-    # DECL → DECL_VAR | ASIGNACION | IF | WHILE | PRINT
     def decl(self) -> None:
-        if self.token_actual_es(TokenKind.INT) or self.token_actual_es(TokenKind.BOOL):
-            self.decl_var()
-            return
-
-        if self.token_actual_es(TokenKind.ID):
-            self.asignacion()
-            return
-
-        if self.token_actual_es(TokenKind.IF):
+        kind = self.token_actual().kind
+        if kind == T.IF:
             self.if_stmt()
-            return
-
-        if self.token_actual_es(TokenKind.WHILE):
+        elif kind == T.WHILE:
             self.while_stmt()
-            return
-
-        if self.token_actual_es(TokenKind.PRINT):
+        elif kind == T.PRINT:
             self.print_stmt()
-            return
-
-        self.avanzar()
-
-    # DECL_VAR → TIPO_DATO ID = EXPRESION
-    def decl_var(self) -> None:
-        numero_linea = self.token_actual().line
-
-        self.tipo_dato()
-
-        nombre_variable = self.token_actual().lexeme
-
-        self.avanzar_si_es(TokenKind.ID)
-        self.avanzar_si_es(TokenKind.ASSIGN)
-
-        self.expresion()
-
-        self.guardar_en_variable(nombre_variable, numero_linea)
-
-    # ASIGNACION → ID = EXPRESION
-    def asignacion(self) -> None:
-        numero_linea = self.token_actual().line
-
-        nombre_variable = self.token_actual().lexeme
-
-        self.avanzar_si_es(TokenKind.ID)
-        self.avanzar_si_es(TokenKind.ASSIGN)
-
-        self.expresion()
-
-        self.guardar_en_variable(nombre_variable, numero_linea)
-
-    # El resultado de la expresión está en AX: se guarda en la variable.
-    def guardar_en_variable(self, nombre_variable: str, numero_linea: int) -> None:
-        if nombre_variable not in self.direcciones:
-            self.anotar_error(
-                numero_linea,
-                f"La variable '{nombre_variable}' no ha sido declarada.",
-            )
-            return
-
-        direccion = self.direcciones[nombre_variable]
-
-        self.emitir("MOV", (("mem", direccion), ("reg", "AX")))
-
-    # IF → if EXPRESION { LISTA_DECL } [ else { LISTA_DECL } ]
-    def if_stmt(self) -> None:
-        self.avanzar_si_es(TokenKind.IF)
-
-        # Los paréntesis de la condición, si los hay, los consume FACTOR.
-        self.expresion()
-
-        self.avanzar_si_es(TokenKind.LBRACE)
-
-        etiqueta_else = self.nueva_etiqueta("IF_ELSE")
-        etiqueta_fin = self.nueva_etiqueta("IF_FIN")
-
-        # Si la condición dio 0, salta al else (o al fin).
-        self.emitir("CMP", (("reg", "AX"), ("imm", 0)))
-        self.salto("JE", etiqueta_else)
-
-        self.lista_decl()
-
-        self.avanzar_si_es(TokenKind.RBRACE)
-
-        if self.token_actual_es(TokenKind.ELSE):
-            self.salto("JMP", etiqueta_fin)
-            self.etiqueta(etiqueta_else)
-
-            self.avanzar_si_es(TokenKind.ELSE)
-            self.avanzar_si_es(TokenKind.LBRACE)
-
-            self.lista_decl()
-
-            self.avanzar_si_es(TokenKind.RBRACE)
-
-            self.etiqueta(etiqueta_fin)
-            return
-
-        self.etiqueta(etiqueta_else)
-
-    # WHILE → while EXPRESION { LISTA_DECL }
-    # Prueba la condición antes de cada vuelta: si sigue siendo cierta, repite.
-    def while_stmt(self) -> None:
-        etiqueta_inicio = self.nueva_etiqueta("WHILE_INICIO")
-        etiqueta_fin = self.nueva_etiqueta("WHILE_FIN")
-
-        self.etiqueta(etiqueta_inicio)
-
-        self.avanzar_si_es(TokenKind.WHILE)
-
-        # Igual que en if: los paréntesis son parte de la expresión.
-        self.expresion()
-
-        self.avanzar_si_es(TokenKind.LBRACE)
-
-        self.emitir("CMP", (("reg", "AX"), ("imm", 0)))
-        self.salto("JE", etiqueta_fin)
-
-        self.lista_decl()
-
-        self.avanzar_si_es(TokenKind.RBRACE)
-
-        # Vuelve al inicio para volver a probar la condición.
-        self.salto("JMP", etiqueta_inicio)
-        self.etiqueta(etiqueta_fin)
-
-    # PRINT → print ( EXPRESION )
-    def print_stmt(self) -> None:
-        self.avanzar_si_es(TokenKind.PRINT)
-        self.avanzar_si_es(TokenKind.LPAREN)
-
-        # El print parte el número en 2 cifras: un literal de 100 en adelante
-        # imprimiría basura (200 -> "D0"). Se avisa, igual que en el CI.
-        if (
-            self.token_actual_es(TokenKind.NUM)
-            and self.tokens[self.posicion + 1].kind == TokenKind.RPAREN
-        ):
-            valor = int(self.token_actual().lexeme)
-
-            if valor > 99:
-                self.anotar_error(
-                    self.token_actual().line,
-                    f"El print solo imprime de 0 a 99, y el valor es {valor}.",
-                )
-
-        self.expresion()
-
-        self.avanzar_si_es(TokenKind.RPAREN)
-
-        self.emitir("PUSH", (("reg", "AX"),))
-        self.salto("CALL", "rutina_print")
-        self.emitir("ADD", (("reg", "SP"), ("imm", 2)), forzar="imm8")
-
-    # Rutina de impresión: AX / 10 deja las decenas en AL y las unidades en AH.
-    # Se guardan en COC y RESI, se pasan a ASCII sumando 30H y se imprimen con
-    # INT 21H / AH=02H, igual que el molde del profe.
-    def rutina_print(self) -> None:
-        self.etiqueta("rutina_print")
-
-        # El valor se apiló antes del CALL: después del CALL queda en [BX+2].
-        self.emitir("MOV", (("reg", "BX"), ("reg", "SP")))
-        self.emitir("MOV", (("reg", "AX"), ("mem", "BX", 2)))
-
-        self.emitir("MOV", (("reg", "DL"), ("imm", 10)))
-        self.emitir("DIV", (("reg", "DL"),))
-
-        direccion_coc = self.direcciones["COC"]
-        direccion_resi = self.direcciones["RESI"]
-
-        self.emitir(
-            "MOV",
-            (("mem", direccion_coc), ("reg", "AL")),
-            texto="MOV COC, AL",
-        )
-        self.emitir(
-            "MOV",
-            (("mem", direccion_resi), ("reg", "AH")),
-            texto="MOV RESI, AH",
-        )
-
-        for direccion, nombre in ((direccion_coc, "COC"), (direccion_resi, "RESI")):
-            self.emitir(
-                "MOV",
-                (("reg", "DL"), ("mem", direccion)),
-                texto=f"MOV DL, {nombre}",
-            )
-            self.emitir(
-                "ADD",
-                (("reg", "DL"), ("imm", 0x30)),
-                texto="ADD DL, 30H",
-            )
-            self.emitir(
-                "MOV",
-                (("reg", "AH"), ("imm", 2)),
-                texto="MOV AH, 02H",
-            )
-            self.emitir("INT", (("imm", 0x21),), texto="INT 21H")
-
-        self.emitir("RET", ())
-
-    # EXPRESION → SUMA [ ( == | > | < ) SUMA ]
-    # Deja 0 o 1 en AX cuando hay comparación.
-    def expresion(self) -> None:
-        self.suma()
-
-        if (
-            self.token_actual_es(TokenKind.EQ)
-            or self.token_actual_es(TokenKind.GREATER)
-            or self.token_actual_es(TokenKind.LESS)
-        ):
-            mnemonico_salto = self.mnemonico_de_comparacion()
-
-            self.avanzar()
-
-            etiqueta_verdadero = self.nueva_etiqueta("CMP_VERDADERO")
-            etiqueta_fin = self.nueva_etiqueta("CMP_FIN")
-
-            self.comparar_con_derecha()
-
-            self.salto(mnemonico_salto, etiqueta_verdadero)
-            self.emitir("MOV", (("reg", "AX"), ("imm", 0)))
-            self.salto("JMP", etiqueta_fin)
-            self.etiqueta(etiqueta_verdadero)
-            self.emitir("MOV", (("reg", "AX"), ("imm", 1)))
-            self.etiqueta(etiqueta_fin)
-
-    def mnemonico_de_comparacion(self) -> str:
-        if self.token_actual_es(TokenKind.EQ):
-            return "JE"
-
-        if self.token_actual_es(TokenKind.GREATER):
-            return "JA"
-
-        return "JB"
-
-    # CMP AX, lado derecho. La izquierda ya está en AX.
-    def comparar_con_derecha(self) -> None:
-        if self.es_suma_simple():
-            derecha = self.operando()
-            self.emitir("CMP", (("reg", "AX"), self.fuente_de(derecha)))
-            return
-
-        self.emitir("PUSH", (("reg", "AX"),))
-        self.suma()
-        self.emitir("MOV", (("reg", "BX"), ("reg", "AX")))
-        self.emitir("POP", (("reg", "AX"),))
-        self.emitir("CMP", (("reg", "AX"), ("reg", "BX")))
-
-    # SUMA → TERMINO [ ( @ | # ) TERMINO ]*
-    def suma(self) -> None:
-        self.termino()
-
-        while self.token_actual_es(TokenKind.AT) or self.token_actual_es(
-            TokenKind.HASH
-        ):
-            mnemonico = "ADD" if self.token_actual_es(TokenKind.AT) else "SUB"
-
-            self.avanzar()
-
-            if self.es_termino_simple():
-                derecha = self.operando()
-                self.emitir(mnemonico, (("reg", "AX"), self.fuente_de(derecha)))
-            else:
-                # El lado derecho es compuesto: se guarda AX en la pila.
-                self.emitir("PUSH", (("reg", "AX"),))
-                self.termino()
-                self.emitir("MOV", (("reg", "BX"), ("reg", "AX")))
-                self.emitir("POP", (("reg", "AX"),))
-                self.emitir(mnemonico, (("reg", "AX"), ("reg", "BX")))
-
-    # TERMINO → FACTOR [ ( & | | ) FACTOR ]*
-    def termino(self) -> None:
-        if self.token_actual_es(TokenKind.LPAREN):
-            self.factor()
         else:
-            izquierda = self.operando()
-            self.cargar_en_ax(izquierda)
+            self.asignacion()  # DECL_VAR y ASIGNACION generan lo mismo
 
-        while self.token_actual_es(TokenKind.AMPERSAND) or self.token_actual_es(
-            TokenKind.PIPE
-        ):
-            mnemonico = "MUL" if self.token_actual_es(TokenKind.AMPERSAND) else "DIV"
-
+    def asignacion(self) -> None:  # [int | bool] ID = EXPRESION
+        if self.token_actual().kind in (T.INT, T.BOOL):
             self.avanzar()
+        nombre = self.token_actual()
+        self.avanzar()  # ID
+        self.avanzar()  # =
+        self.expresion()
+        registro = AL if self.tabla.get(nombre.lexeme) == "bool" else AX  # bool = 1 byte
+        self.emitir("MOV", mem(self.direccion_de(nombre)), registro)
 
-            if self.es_factor_simple():
-                derecha = self.operando()
-                self.emitir_mul_div(mnemonico, derecha)
-            else:
-                # Se evalúa el factor derecho y se deja en BX.
-                self.emitir("PUSH", (("reg", "AX"),))
-                self.factor()
-                self.emitir("MOV", (("reg", "BX"), ("reg", "AX")))
-                self.emitir("POP", (("reg", "AX"),))
+    def condicion(self, etiqueta_falsa: str) -> None:  # si la expresión da 0 salta
+        self.avanzar()  # if / while
+        self.expresion()
+        self.emitir("CMP", AX, imm(0))
+        self.salto("JE", etiqueta_falsa)
 
-                if mnemonico == "DIV":
-                    self.emitir("MOV", (("reg", "DX"), ("imm", 0)))
+    def if_stmt(self) -> None:
+        falso = self.nueva_etiqueta("IF_FALSO")
+        self.condicion(falso)
+        self.bloque()
+        self.etiqueta(falso)
 
-                self.emitir(mnemonico, (("reg", "BX"),))
+    def while_stmt(self) -> None:
+        inicio, fin = self.nueva_etiqueta("WHILE_INICIO"), self.nueva_etiqueta("WHILE_FIN")
+        self.etiqueta(inicio)
+        self.condicion(fin)
+        self.bloque()
+        self.salto("JMP", inicio)
+        self.etiqueta(fin)
 
-    # MUL/DIV con el lado derecho simple (variable o número).
-    def emitir_mul_div(self, mnemonico: str, derecha: Operando) -> None:
-        if derecha[0] == "id":
-            if derecha[1] not in self.direcciones:
-                raise ErrorObjeto(
-                    f"La variable '{derecha[1]}' no ha sido declarada.",
-                )
+    def print_stmt(self) -> None:
+        self.avanzar()  # print
+        self.avanzar()  # (
+        nombre = self.token_actual()
+        self.avanzar()  # ID
+        self.avanzar()  # )
+        self.emitir("MOV", AX, mem(self.direccion_de(nombre)))
+        self.emitir("PUSH", AX)
+        self.salto("CALL", "rutina_print")
+        self.emitir("ADD", SP, imm(2), forzar="imm8")
 
-            if mnemonico == "DIV":
-                self.emitir("MOV", (("reg", "DX"), ("imm", 0)))
+    def rutina_print(self) -> None:  # igual que el CI: DIV DL, COC, RESI, INT 21H
+        coc, resi = self.direcciones["COC"], self.direcciones["RESI"]
+        self.etiqueta("rutina_print")
+        self.emitir("MOV", BX, SP)
+        self.emitir("MOV", AX, ("mem", "BX", 2))
+        self.emitir("MOV", DL, imm(10))
+        self.emitir("DIV", DL)
+        self.emitir("MOV", mem(coc), AL, texto="MOV COC, AL")
+        self.emitir("MOV", mem(resi), AH, texto="MOV RESI, AH")
+        for direccion, nombre in ((coc, "COC"), (resi, "RESI")):
+            self.emitir("MOV", DL, mem(direccion), texto=f"MOV DL, {nombre}")
+            self.emitir("ADD", DL, imm(0x30), texto="ADD DL, 30H")
+            self.emitir("MOV", AH, imm(2), texto="MOV AH, 02H")
+            self.emitir("INT", imm(0x21), texto="INT 21H")
+        self.emitir("RET")
 
-            direccion = self.direcciones[derecha[1]]
-            self.emitir(mnemonico, (("mem", direccion),))
+    # ---------- expresiones ----------
+
+    def expresion(self) -> None:  # SUMA [ (== | > | <) SUMA ]: deja 0 ó 1 en AX
+        self.suma()
+        kind = self.token_actual().kind
+        if kind in COMPARACIONES:
+            self.avanzar()
+            self.operar("CMP", self.suma)
+            verdadero, fin = self.nueva_etiqueta("CMP_VERDADERO"), self.nueva_etiqueta("CMP_FIN")
+            self.salto(COMPARACIONES[kind], verdadero)
+            self.emitir("MOV", AX, imm(0))
+            self.salto("JMP", fin)
+            self.etiqueta(verdadero)
+            self.emitir("MOV", AX, imm(1))
+            self.etiqueta(fin)
+
+    def suma(self) -> None:
+        self.binaria({T.AT: "ADD", T.HASH: "SUB"}, self.termino)
+
+    def termino(self) -> None:
+        self.binaria({T.AMPERSAND: "MUL", T.PIPE: "DIV"}, self.factor)
+
+    def binaria(self, operadores: dict, siguiente) -> None:  # siguiente [ operador siguiente ]*
+        siguiente()
+        while self.token_actual().kind in operadores:
+            mnemonico = operadores[self.token_actual().kind]
+            self.avanzar()
+            self.operar(mnemonico, siguiente)
+
+    def operar(self, mnemonico: str, derecha) -> None:
+        """AX = AX <mnemonico> lado derecho. MUL y DIV trabajan con BX."""
+        simple, mul_div = self.es_simple(), mnemonico in ("MUL", "DIV")
+        if simple and not mul_div:
+            self.emitir(mnemonico, AX, self.fuente())  # ADD AX,[x] · SUB AX,1 · CMP AX,5
             return
-
-        if derecha[0] != "num" and derecha[0] != "bool":
-            raise ErrorObjeto("MUL y DIV necesitan una variable o un número.")
-
-        # MUL/DIV no aceptan inmediato: se pasa por BX.
-        self.emitir("MOV", (("reg", "BX"), ("imm", derecha[1])))
-
+        if simple:
+            self.emitir("MOV", BX, self.fuente())
+        else:  # lado derecho compuesto (o bool): AX espera en la pila
+            self.emitir("PUSH", AX)
+            derecha()
+            self.emitir("MOV", BX, AX)
+            self.emitir("POP", AX)
         if mnemonico == "DIV":
-            self.emitir("MOV", (("reg", "DX"), ("imm", 0)))
+            self.emitir("MOV", DX, imm(0))
+        if mul_div:
+            self.emitir(mnemonico, BX)
+        else:
+            self.emitir(mnemonico, AX, BX)
 
-        self.emitir(mnemonico, (("reg", "BX"),))
-
-    # FACTOR → ID | NUM | BOOL | ( EXPRESION )
-    def factor(self) -> None:
-        # ID: se lee de su dirección directa.
-        if self.token_actual_es(TokenKind.ID):
-            nombre_variable = self.token_actual().lexeme
-            numero_linea = self.token_actual().line
-
+    def factor(self) -> None:  # ID | NUM | BOOL | ( EXPRESION )
+        if self.token_actual_es(T.LPAREN):
             self.avanzar()
-
-            if nombre_variable not in self.direcciones:
-                self.anotar_error(
-                    numero_linea,
-                    f"La variable '{nombre_variable}' no ha sido declarada.",
-                )
-                return
-
-            self.cargar_en_ax(("id", nombre_variable))
-            return
-
-        # NUM
-        if self.token_actual_es(TokenKind.NUM):
-            numero_linea = self.token_actual().line
-            valor = int(self.token_actual().lexeme)
-
-            self.avanzar()
-
-            self.validar_numero(valor, numero_linea)
-            self.cargar_en_ax(("num", valor))
-            return
-
-        # true = 1, false = 0
-        if self.token_actual_es(TokenKind.TRUE) or self.token_actual_es(
-            TokenKind.FALSE
-        ):
-            valor = 1 if self.token_actual_es(TokenKind.TRUE) else 0
-
-            self.avanzar()
-
-            self.cargar_en_ax(("bool", valor))
-            return
-
-        # ( EXPRESION ): cambia el orden, no el resultado.
-        if self.token_actual_es(TokenKind.LPAREN):
-            self.avanzar()
-
             self.expresion()
-
-            self.avanzar_si_es(TokenKind.RPAREN)
+            self.avanzar()
             return
-
-        numero_linea = self.token_actual().line
-
-        self.anotar_error(numero_linea, "Se esperaba una expresión.")
-        self.avanzar()
-
-    # OPERANDO → ID | NUM | true | false   (sin emitir nada)
-    def operando(self) -> Operando:
         token = self.token_actual()
-
-        if token.kind == TokenKind.TRUE:
+        if token.kind in (T.TRUE, T.FALSE):
+            self.emitir("MOV", AL, self.fuente())
+            self.emitir("MOV", AH, imm(0))
+        elif self.tabla.get(token.lexeme) == "bool":  # 1 byte: se carga en AL y AH queda en 0
+            self.emitir("MOV", AL, mem(self.direccion_de(token)))
+            self.emitir("MOV", AH, imm(0))
             self.avanzar()
-            return ("bool", 1)
+        else:
+            self.emitir("MOV", AX, self.fuente())
 
-        if token.kind == TokenKind.FALSE:
-            self.avanzar()
-            return ("bool", 0)
+    def es_simple(self) -> bool:  # un solo ID int / NUM, sin operador detrás
+        token = self.token_actual()
+        return (
+            token.kind in (T.ID, T.NUM)
+            and self.tabla.get(token.lexeme) != "bool"
+            and self.tokens[self.posicion + 1].kind not in ARITMETICOS
+        )
 
-        if token.kind == TokenKind.NUM:
-            self.avanzar()
-            self.validar_numero(int(token.lexeme), token.line)
-            return ("num", int(token.lexeme))
-
-        if token.kind == TokenKind.ID:
-            self.avanzar()
-
-            if token.lexeme not in self.direcciones:
-                self.anotar_error(
-                    token.line,
-                    f"La variable '{token.lexeme}' no ha sido declarada.",
-                )
-
-                # Se sigue con un 0 para no propagar un id inexistente.
-                return ("num", 0)
-
-            return ("id", token.lexeme)
-
-        self.anotar_error(token.line, "Se esperaba una variable o un número.")
+    def fuente(self) -> tuple:  # ID -> [dirección] · NUM -> número · true / false -> 1 / 0
+        token = self.token_actual()
         self.avanzar()
+        if token.kind == T.ID:
+            return mem(self.direccion_de(token))
+        return imm(int(token.lexeme) if token.kind == T.NUM else int(token.kind == T.TRUE))
 
-        return ("num", 0)
-
-    # Un operando simple se convierte en fuente de instrucción.
-    def fuente_de(self, operando: Operando) -> Operando:
-        if operando[0] == "id":
-            if operando[1] not in self.direcciones:
-                raise ErrorObjeto(
-                    f"La variable '{operando[1]}' no ha sido declarada.",
-                )
-
-            return ("mem", self.direcciones[operando[1]])
-
-        if operando[0] == "num" or operando[0] == "bool":
-            return ("imm", operando[1])
-
-        raise ErrorObjeto(f"No se puede usar {operando} como fuente.")
-
-    def cargar_en_ax(self, operando: Operando) -> None:
-        self.emitir("MOV", (("reg", "AX"), self.fuente_de(operando)))
-
-    # ¿El próximo TERMINO es un solo operando, sin & ni |?
-    def es_termino_simple(self) -> bool:
-        if self.token_actual_es(TokenKind.LPAREN):
-            return False
-
-        siguiente = self.posicion + 1
-
-        if siguiente < len(self.tokens):
-            return self.tokens[siguiente].kind not in (
-                TokenKind.AMPERSAND,
-                TokenKind.PIPE,
+    def direccion_de(self, token: Token) -> int:
+        if token.lexeme not in self.direcciones:
+            raise ErrorObjeto(
+                f"Línea {token.line}: ERROR DE CÓDIGO OBJETO: "
+                f"La variable '{token.lexeme}' no ha sido declarada."
             )
+        return self.direcciones[token.lexeme]
 
-        return True
+    # ---------- emisión ----------
 
-    # ¿La próxima SUMA es un solo operando? Acá también cuentan @ y #.
-    def es_suma_simple(self) -> bool:
-        if self.token_actual_es(TokenKind.LPAREN):
-            return False
-
-        siguiente = self.posicion + 1
-
-        if siguiente < len(self.tokens):
-            return self.tokens[siguiente].kind not in (
-                TokenKind.AT,
-                TokenKind.HASH,
-                TokenKind.AMPERSAND,
-                TokenKind.PIPE,
-            )
-
-        return True
-
-    # ¿El próximo FACTOR es simple? Solo el paréntesis arma algo compuesto.
-    def es_factor_simple(self) -> bool:
-        return not self.token_actual_es(TokenKind.LPAREN)
-
-    def validar_numero(self, valor: int, numero_linea: int) -> None:
-        if valor > 0xFFFF:
-            self.anotar_error(
-                numero_linea,
-                f"El número {valor} no entra en 16 bits (0..65535).",
-            )
-
-    def tipo_dato(self) -> None:
-        if self.token_actual_es(TokenKind.INT) or self.token_actual_es(TokenKind.BOOL):
-            self.avanzar()
-
-    # ==================================
-    # EMISIÓN
-    # ==================================
-
-    def emitir(
-        self,
-        mnemonico: str,
-        operandos: tuple[Operando, ...],
-        forzar: str | None = None,
-        texto: str | None = None,
-    ) -> None:
-        if texto is None:
-            texto = self.texto_de(mnemonico, operandos)
-
-        self.items.append(Instruccion(mnemonico, operandos, forzar, texto))
+    def emitir(self, mnemonico: str, *operandos: tuple, forzar: str | None = None, texto: str = "") -> None:
+        partes = ", ".join(texto_de(operando) for operando in operandos)
+        self.items.append(Instruccion(mnemonico, operandos, forzar, texto or f"{mnemonico} {partes}".strip()))
 
     def salto(self, mnemonico: str, etiqueta: str) -> None:
         self.items.append(Salto(mnemonico, etiqueta))
@@ -648,245 +248,60 @@ class GeneradorObjeto:
         self.numero_etiqueta += 1
         return f"{prefijo}_{self.numero_etiqueta}"
 
-    # Texto legible para el tooltip del panel.
-    def texto_de(self, mnemonico: str, operandos: tuple[Operando, ...]) -> str:
-        if len(operandos) == 0:
-            return mnemonico
 
-        partes = [self.texto_de_operando(operando) for operando in operandos]
-
-        return f"{mnemonico} " + ", ".join(partes)
-
-    def texto_de_operando(self, operando: Operando) -> str:
-        if operando[0] == "reg":
-            return operando[1]
-
-        if operando[0] == "imm":
-            return str(operando[1])
-
-        if len(operando) == 2:
-            return f"[{operando[1]:04X}h]"
-
-        return f"[{operando[1]}{operando[2]:+d}]"
-
-    def anotar_error(self, numero_linea: int, texto_error: str) -> None:
-        self.errores.append(
-            f"Línea {numero_linea}: ERROR DE CÓDIGO OBJETO: {texto_error}",
-        )
-
-    def avanzar_si_es(self, kind_esperado: TokenKind) -> None:
-        if self.token_actual_es(kind_esperado):
-            self.avanzar()
-
-    def token_actual_es(self, kind_esperado: TokenKind) -> bool:
-        return self.token_actual().kind == kind_esperado
-
-    def token_actual(self) -> Token:
-        return self.tokens[self.posicion]
-
-    def avanzar(self) -> None:
-        if self.posicion < len(self.tokens) - 1:
-            self.posicion += 1
-
-
-# ==================================
-# ARMADO EN DOS PASADAS
-# ==================================
-
-
-def tamano_de(item: Item) -> int:
-    if isinstance(item, Etiqueta):
-        return 0
-
-    if isinstance(item, Salto):
-        return tamano_salto(item.mnemonico, item.corto)
-
-    return len(codificar(item.mnemonico, item.operandos, item.forzar))
-
-
-# Devuelve una fila por instrucción: dirección, bytes y texto.
-def ensamblar(items: list[Item]) -> list[Fila]:
-    # dirección que le toca a cada elemento de la lista
-    direccion_de_cada_item: list[int] = []
-    # nombre de etiqueta -> dirección
-    direccion_de_etiqueta: dict[str, int] = {}
-
-    # PASO 1 y 2: suponer saltos cortos, medir, y agrandar los que no entran.
-    # Cada vez que un salto se agranda, todo lo que viene atrás se corre:
-    # por eso se repite la medición hasta que nada cambie.
-    for _ in range(len(items) + 2):
-        direccion_de_cada_item = []
-        direccion_de_etiqueta = {}
-        direccion = CODE_BASE
-
+def ensamblar(items: list) -> list[tuple[int, list[int], str]]:
+    """Dos pasadas: la 1 calcula direcciones; la 2 ya conoce los destinos de los saltos."""
+    destinos: dict[str, int] = {}
+    for _ in range(2):
+        filas, posicion = [], CODE_BASE
         for item in items:
-            direccion_de_cada_item.append(direccion)
-
             if isinstance(item, Etiqueta):
-                direccion_de_etiqueta[item.nombre] = direccion
-            else:
-                direccion += tamano_de(item)
-
-        hubo_cambio = False
-
-        for posicion, item in enumerate(items):
-            if not isinstance(item, Salto) or not item.corto:
+                destinos[item.nombre] = posicion
                 continue
-
-            if item.etiqueta not in direccion_de_etiqueta:
-                raise ErrorObjeto(f"No existe la etiqueta '{item.etiqueta}'.")
-
-            # rel = destino - dirección de la instrucción que sigue al salto
-            siguiente = direccion_de_cada_item[posicion] + tamano_salto(
-                item.mnemonico, True
-            )
-            relativo = direccion_de_etiqueta[item.etiqueta] - siguiente
-
-            if not -128 <= relativo <= 127:
-                item.corto = False
-                hubo_cambio = True
-
-        if not hubo_cambio:
-            break
-
-    # PASO 3: con las direcciones definitivas, sacar los bytes de cada fila.
-    filas: list[Fila] = []
-
-    for posicion, item in enumerate(items):
-        if isinstance(item, Etiqueta):
-            continue
-
-        if isinstance(item, Salto):
-            if item.etiqueta not in direccion_de_etiqueta:
-                raise ErrorObjeto(f"No existe la etiqueta '{item.etiqueta}'.")
-
-            siguiente = direccion_de_cada_item[posicion] + tamano_salto(
-                item.mnemonico,
-                item.corto,
-            )
-            relativo = direccion_de_etiqueta[item.etiqueta] - siguiente
-            bytes_instruccion = codificar_salto(
-                item.mnemonico,
-                relativo,
-                item.corto,
-            )
-            texto = f"{item.mnemonico} {item.etiqueta}"
-        else:
-            bytes_instruccion = codificar(
-                item.mnemonico,
-                item.operandos,
-                item.forzar,
-            )
-            texto = item.texto
-
-        filas.append(
-            {
-                "direccion": direccion_de_cada_item[posicion],
-                "bytes": bytes_instruccion,
-                "texto": texto,
-            },
-        )
-
+            if isinstance(item, Salto):
+                codigo = codificar_salto(item.mnemonico, destinos.get(item.etiqueta, 0), posicion)
+                texto = f"{item.mnemonico} {item.etiqueta}"
+            else:
+                codigo, texto = codificar(item.mnemonico, item.operandos, item.forzar), item.texto
+            filas.append((posicion, codigo, texto))
+            posicion += len(codigo)
     return filas
 
 
-# ==================================
-# FORMATO PARA EL PANEL
-# ==================================
-
-
-# DIR en binario: 16 bits en cuatro nibbles, un espacio entre cada uno.
 def formatear_direccion(direccion: int) -> str:
-    partes: list[str] = []
-
-    for desplazamiento in (12, 8, 4, 0):
-        nibble = (direccion >> desplazamiento) & 0xF
-        partes.append(f"{nibble:04b}")
-
-    return " ".join(partes)
+    return " ".join(f"{(direccion >> desplazamiento) & 0xF:04b}" for desplazamiento in (12, 8, 4, 0))
 
 
-# CONTENIDO: dos nibbles por byte (un espacio) y dos espacios entre bytes.
-def formatear_binario(bytes_instruccion: list[int]) -> str:
-    partes: list[str] = []
-
-    for byte in bytes_instruccion:
-        nibble_alto = byte >> 4
-        nibble_bajo = byte & 0x0F
-        partes.append(f"{nibble_alto:04b} {nibble_bajo:04b}")
-
-    return "  ".join(partes)
+def formatear_binario(codigo: list[int]) -> str:
+    return "  ".join(f"{byte >> 4:04b} {byte & 0xF:04b}" for byte in codigo)
 
 
-def formatear_hex(bytes_instruccion: list[int]) -> str:
-    return " ".join(f"{byte:02X}" for byte in bytes_instruccion)
+def formatear_hex(codigo: list[int]) -> str:
+    return " ".join(f"{byte:02X}" for byte in codigo)
 
 
-def fila_para_panel(fila: Fila) -> FilaPanel:
+def fila(direccion: int, codigo: list[int], texto: str) -> dict[str, str]:
+    """Una fila del panel: DIR y CONTENIDO en nibbles (4 bits), HEX en bytes."""
     return {
-        "direccion": formatear_direccion(fila["direccion"]),
-        "contenido": formatear_binario(fila["bytes"]),
-        "hex": formatear_hex(fila["bytes"]),
-        "texto": fila["texto"],
+        "direccion": formatear_direccion(direccion),
+        "contenido": formatear_binario(codigo),
+        "hex": formatear_hex(codigo),
+        "texto": texto,
     }
 
 
-def filas_de_datos(tabla: dict[str, str], tiene_print: bool = False) -> list[FilaPanel]:
-    filas: list[FilaPanel] = []
-
-    for posicion, (nombre, tipo) in enumerate(tabla.items()):
-        filas.append(
-            {
-                "direccion": formatear_direccion(
-                    DATA_BASE + BYTES_POR_VARIABLE * posicion,
-                ),
-                "contenido": formatear_binario([0x00, 0x00]),
-                "hex": formatear_hex([0x00, 0x00]),
-                "texto": f"{nombre} : {tipo}",
-            },
-        )
-
-    if not tiene_print:
-        return filas
-
-    # COC y RESI son de 1 byte, uno después del otro.
-    base_print = DATA_BASE + BYTES_POR_VARIABLE * len(tabla)
-
-    for desplazamiento, nombre in enumerate(("COC", "RESI")):
-        filas.append(
-            {
-                "direccion": formatear_direccion(base_print + desplazamiento),
-                "contenido": formatear_binario([0x00]),
-                "hex": formatear_hex([0x00]),
-                "texto": f"{nombre} : byte",
-            },
-        )
-
-    return filas
-
-
-# ==================================
-# ENTRADA DE LA FASE
-# ==================================
-
-
-def generar_codigo_objeto(
-    tokens: list[Token],
-    tabla: dict[str, str],
-) -> tuple[bool, list[FilaPanel], list[FilaPanel], list[str]]:
+def generar_codigo_objeto(tokens: list[Token], tabla: dict[str, str]):
     generador = GeneradorObjeto(tokens, tabla)
-
     try:
-        items, errores = generador.generar()
-
-        if len(errores) > 0:
-            return False, [], [], errores
-
-        filas = ensamblar(items)
+        filas = generador.generar()
     except (ErrorObjeto, ErrorCodificador) as error:
         return False, [], [], [str(error)]
-
-    datos = filas_de_datos(tabla, generador.tiene_print)
-    codigo = [fila_para_panel(fila) for fila in filas]
-
-    return True, datos, codigo, ["Código Objeto OK"]
+    datos = [  # int ocupa 2 bytes; bool, COC y RESI ocupan 1
+        fila(
+            direccion,
+            [0] * (2 if tabla.get(nombre) == "int" else 1),
+            f"{nombre} : {tabla.get(nombre, 'byte')}",
+        )
+        for nombre, direccion in generador.direcciones.items()
+    ]
+    return True, datos, [fila(*datos_fila) for datos_fila in filas], ["Código Objeto OK"]

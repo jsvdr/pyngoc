@@ -1,20 +1,18 @@
 from collections.abc import Callable
 
+from recorrido import Recorrido
 from tokens import Token, TokenKind
 
 
 # Semántico: lista_tokens -> Semantic OK o errores. Devuelve int/bool/None.
 # None = ya hubo error antes, no se genera otro en cascada.
-class AnalizadorSemantico:
-    tokens: list[Token]
-    posicion: int
+class AnalizadorSemantico(Recorrido):
     errores: list[str]
     # nombre_variable -> "int" o "bool"
     tabla: dict[str, str]
 
     def __init__(self, tokens: list[Token]) -> None:
-        self.tokens = tokens
-        self.posicion = 0
+        super().__init__(tokens)
         self.errores = []
         self.tabla = {}
 
@@ -36,9 +34,7 @@ class AnalizadorSemantico:
 
     # LISTA_DECL → [ DECL ; ]*
     def lista_decl(self) -> None:
-        while not self.token_actual_es(TokenKind.RBRACE) and not self.token_actual_es(
-            TokenKind.EOF
-        ):
+        while not self.token_actual_es(TokenKind.RBRACE) and not self.token_actual_es(TokenKind.EOF):
             self.decl()
 
             self.avanzar_si_es(TokenKind.SEMICOLON)
@@ -47,25 +43,16 @@ class AnalizadorSemantico:
     def decl(self) -> None:
         if self.token_actual_es(TokenKind.INT) or self.token_actual_es(TokenKind.BOOL):
             self.decl_var()
-            return
-
-        if self.token_actual_es(TokenKind.ID):
+        elif self.token_actual_es(TokenKind.ID):
             self.asignacion()
-            return
-
-        if self.token_actual_es(TokenKind.IF):
+        elif self.token_actual_es(TokenKind.IF):
             self.if_stmt()
-            return
-
-        if self.token_actual_es(TokenKind.WHILE):
+        elif self.token_actual_es(TokenKind.WHILE):
             self.while_stmt()
-            return
-
-        if self.token_actual_es(TokenKind.PRINT):
+        elif self.token_actual_es(TokenKind.PRINT):
             self.print_stmt()
-            return
-
-        self.avanzar()
+        else:
+            self.avanzar()
 
     # DECL_VAR → TIPO_DATO ID = EXPRESION
     def decl_var(self) -> None:
@@ -88,18 +75,14 @@ class AnalizadorSemantico:
 
         # ¿La variable ya existe?
         if nombre_variable in self.tabla:
-            self.error_declaracion(
-                numero_linea, f"La variable '{nombre_variable}' ya fue declarada."
-            )
+            self.error_declaracion(numero_linea, f"La variable '{nombre_variable}' ya fue declarada.")
             return
 
         # ¿Los tipos coinciden?
         if tipo_encontrado is not None and tipo_declarado != tipo_encontrado:
             self.error_tipo(
                 numero_linea,
-                f"La variable '{nombre_variable}' "
-                f"es {tipo_declarado}, "
-                f"pero se recibió {tipo_encontrado}.",
+                f"La variable '{nombre_variable}' es {tipo_declarado}, pero se recibió {tipo_encontrado}.",
             )
 
         # Se guarda incluso si hubo error de tipos.
@@ -119,9 +102,7 @@ class AnalizadorSemantico:
 
         # ¿La variable existe?
         if nombre_variable not in self.tabla:
-            self.error_declaracion(
-                numero_linea, f"La variable '{nombre_variable}' no ha sido declarada."
-            )
+            self.error_declaracion(numero_linea, f"La variable '{nombre_variable}' no ha sido declarada.")
 
             return
 
@@ -131,12 +112,10 @@ class AnalizadorSemantico:
         if tipo_encontrado is not None and tipo_declarado != tipo_encontrado:
             self.error_tipo(
                 numero_linea,
-                f"La variable '{nombre_variable}' "
-                f"es {tipo_declarado}, "
-                f"pero se asignó {tipo_encontrado}.",
+                f"La variable '{nombre_variable}' es {tipo_declarado}, pero se asignó {tipo_encontrado}.",
             )
 
-    # IF → if EXPRESION { LISTA_DECL } [else { LISTA_DECL }]
+    # IF → if EXPRESION { LISTA_DECL }
     def if_stmt(self) -> None:
         numero_linea = self.token_actual().line
 
@@ -152,15 +131,6 @@ class AnalizadorSemantico:
         self.lista_decl()
 
         self.avanzar_si_es(TokenKind.RBRACE)
-
-        if self.token_actual_es(TokenKind.ELSE):
-            self.avanzar()
-
-            self.avanzar_si_es(TokenKind.LBRACE)
-
-            self.lista_decl()
-
-            self.avanzar_si_es(TokenKind.RBRACE)
 
     # WHILE → while EXPRESION { LISTA_DECL }
     def while_stmt(self) -> None:
@@ -179,13 +149,21 @@ class AnalizadorSemantico:
 
         self.avanzar_si_es(TokenKind.RBRACE)
 
-    # PRINT → print ( EXPRESION )
+    # PRINT → print ( ID )   solo variables int ya declaradas
     def print_stmt(self) -> None:
         self.avanzar_si_es(TokenKind.PRINT)
-
         self.avanzar_si_es(TokenKind.LPAREN)
 
-        self.expresion()
+        token = self.token_actual()
+        numero_linea = token.line
+        if token.kind != TokenKind.ID:
+            self.error_declaracion(numero_linea, "print solo acepta una variable.")
+        elif token.lexeme not in self.tabla:
+            self.error_declaracion(numero_linea, f"La variable '{token.lexeme}' no ha sido declarada.")
+        elif self.tabla[token.lexeme] != "int":
+            tipo_actual = self.tabla[token.lexeme]
+            self.error_tipo(numero_linea, f"print solo acepta int, pero '{token.lexeme}' es {tipo_actual}.")
+        self.avanzar_si_es(TokenKind.ID)
 
         self.avanzar_si_es(TokenKind.RPAREN)
 
@@ -217,18 +195,14 @@ class AnalizadorSemantico:
                 return None
 
             if tipo_primero != tipo_segundo:
-                self.error_tipo(
-                    numero_linea, "Los dos lados de '==' deben tener el mismo tipo."
-                )
+                self.error_tipo(numero_linea, "Los dos lados de '==' deben tener el mismo tipo.")
 
                 return None
 
             return "bool"
 
         # > o <
-        if self.token_actual_es(TokenKind.GREATER) or self.token_actual_es(
-            TokenKind.LESS
-        ):
+        if self.token_actual_es(TokenKind.GREATER) or self.token_actual_es(TokenKind.LESS):
             operador = self.token_actual().lexeme
             numero_linea = self.token_actual().line
 
@@ -240,9 +214,7 @@ class AnalizadorSemantico:
                 return None
 
             if tipo_primero != "int" or tipo_segundo != "int":
-                self.error_tipo(
-                    numero_linea, f"El operador '{operador}' requiere valores int."
-                )
+                self.error_tipo(numero_linea, f"El operador '{operador}' requiere valores int.")
 
                 return None
 
@@ -285,9 +257,7 @@ class AnalizadorSemantico:
                 continue
 
             if tipo_acumulado != "int" or tipo_nuevo != "int":
-                self.error_tipo(
-                    numero_linea, f"El operador '{operador}' requiere valores int."
-                )
+                self.error_tipo(numero_linea, f"El operador '{operador}' requiere valores int.")
 
                 tipo_acumulado = None
 
@@ -317,14 +287,17 @@ class AnalizadorSemantico:
 
         # NUM
         if self.token_actual_es(TokenKind.NUM):
+            if int(self.token_actual().lexeme) > 0xFFFF:
+                self.error_tipo(
+                    self.token_actual().line,
+                    "El número no entra en 16 bits (0..65535).",
+                )
             self.avanzar()
 
             return "int"
 
         # true / false
-        if self.token_actual_es(TokenKind.TRUE) or self.token_actual_es(
-            TokenKind.FALSE
-        ):
+        if self.token_actual_es(TokenKind.TRUE) or self.token_actual_es(TokenKind.FALSE):
             self.avanzar()
 
             return "bool"
@@ -341,24 +314,8 @@ class AnalizadorSemantico:
 
         return None
 
-    def avanzar_si_es(self, kind_esperado: TokenKind) -> None:
-        if self.token_actual_es(kind_esperado):
-            self.avanzar()
-
-    def token_actual_es(self, kind_esperado: TokenKind) -> bool:
-        return self.token_actual().kind == kind_esperado
-
-    def token_actual(self) -> Token:
-        return self.tokens[self.posicion]
-
-    def avanzar(self) -> None:
-        if self.posicion < len(self.tokens) - 1:
-            self.posicion += 1
-
     def error_tipo(self, numero_linea: int, texto_error: str) -> None:
         self.errores.append(f"Línea {numero_linea}: ERROR DE TIPOS: {texto_error}")
 
     def error_declaracion(self, numero_linea: int, texto_error: str) -> None:
-        self.errores.append(
-            f"Línea {numero_linea}: ERROR DE DECLARACIÓN: {texto_error}"
-        )
+        self.errores.append(f"Línea {numero_linea}: ERROR DE DECLARACIÓN: {texto_error}")

@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from enum import IntEnum
 
 
@@ -7,7 +8,6 @@ class TokenKind(IntEnum):
     EOF = 0
 
     IF = 1
-    ELSE = 2
     WHILE = 3
     PRINT = 4
     INT = 5
@@ -37,15 +37,11 @@ class TokenKind(IntEnum):
     INVALID = 24
 
 
+@dataclass
 class Token:
     kind: TokenKind
     lexeme: str
     line: int
-
-    def __init__(self, kind: TokenKind, lexeme: str, line: int) -> None:
-        self.kind = kind
-        self.lexeme = lexeme
-        self.line = line
 
     def __str__(self) -> str:
         return f"<TKN {self.kind.name} {self.lexeme}>"

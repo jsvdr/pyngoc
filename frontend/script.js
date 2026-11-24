@@ -1,3 +1,14 @@
+// Escala la pantalla fija de 1920x1080 a cualquier proyector o laptop.
+function ajustarZoom() {
+  document.documentElement.style.zoom = Math.min(
+    window.innerWidth / 1920,
+    window.innerHeight / 1080,
+  );
+}
+
+ajustarZoom();
+window.addEventListener("resize", ajustarZoom);
+
 const cajaCodigo = document.getElementById("codigo");
 const cajaTokens = document.getElementById("tokens");
 const cajaErrores = document.getElementById("errores");
@@ -16,8 +27,8 @@ const errorCO = document.getElementById("errorCO");
 // COLORES Y LIMPIEZA
 // ==================================
 
-const COLOR_OK = "#1e7d32";
-const COLOR_ERROR = "#cc0000";
+const COLOR_OK = "#065F46";
+const COLOR_ERROR = "#991B1B";
 
 function limpiarSalidas() {
   cajaTokens.value = "";
@@ -51,23 +62,33 @@ cajaArchivo.addEventListener("change", (evento) => {
 });
 
 // ==================================
+// COMUNICACIÓN CON EL SERVIDOR
+// ==================================
+
+// Envía el código fuente actual al endpoint indicado.
+async function enviarCodigo(ruta) {
+  const respuesta = await fetch(ruta, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      codigo: cajaCodigo.value,
+    }),
+  });
+  const datos = await respuesta.json();
+  return { okHttp: respuesta.ok, datos };
+}
+
+// ==================================
 // SCANNER
 // ==================================
 
-btnTokens.addEventListener("click", async function () {
+btnTokens.addEventListener("click", async () => {
   limpiarSalidas();
   try {
-    const respuesta = await fetch("/analizar", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        codigo: cajaCodigo.value,
-      }),
-    });
-    const datos = await respuesta.json();
-    if (!respuesta.ok) {
+    const { okHttp, datos } = await enviarCodigo("/analizar");
+    if (!okHttp) {
       pintarErrores(datos.errores || ["Error al analizar el código."], false);
       return;
     }
@@ -83,54 +104,24 @@ btnTokens.addEventListener("click", async function () {
 });
 
 // ==================================
-// PARSER
+// PARSER Y SEMÁNTICO
 // ==================================
 
-btnParser.addEventListener("click", async function () {
-  limpiarSalidas();
-  try {
-    const respuesta = await fetch("/parser", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        codigo: cajaCodigo.value,
-      }),
-    });
-    const datos = await respuesta.json();
-    pintarErrores(datos.errores || ["Error al analizar el parser."], datos.ok === true);
-  } catch (fallo) {
-    console.error(fallo);
-    cajaErrores.value = "Error al comunicarse con el parser.";
-    cajaErrores.style.color = COLOR_ERROR;
-  }
-});
+function analizar(boton, ruta, fallo) {
+  boton.addEventListener("click", async () => {
+    limpiarSalidas();
+    try {
+      const { datos } = await enviarCodigo(ruta);
+      pintarErrores(datos.errores || [fallo], datos.ok === true);
+    } catch (error) {
+      console.error(error);
+      pintarErrores([fallo], false);
+    }
+  });
+}
 
-// ==================================
-// ANALIZADOR SEMÁNTICO
-// ==================================
-
-btnSemantico.addEventListener("click", async function () {
-  limpiarSalidas();
-  try {
-    const respuesta = await fetch("/semantico", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        codigo: cajaCodigo.value,
-      }),
-    });
-    const datos = await respuesta.json();
-    pintarErrores(datos.errores || ["Error al analizar semánticamente."], datos.ok === true);
-  } catch (fallo) {
-    console.error(fallo);
-    cajaErrores.value = "Error al comunicarse con el analizador semántico.";
-    cajaErrores.style.color = COLOR_ERROR;
-  }
-});
+analizar(btnParser, "/parser", "Error al analizar el parser.");
+analizar(btnSemantico, "/semantico", "Error al analizar semánticamente.");
 
 // ==================================
 // CÓDIGO INTERMEDIO
@@ -168,19 +159,10 @@ function pintarIntermedio(filas, mensaje) {
   }
 }
 
-btnCI.addEventListener("click", async function () {
+btnCI.addEventListener("click", async () => {
   limpiarSalidas();
   try {
-    const respuesta = await fetch("/intermedio", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        codigo: cajaCodigo.value,
-      }),
-    });
-    const datos = await respuesta.json();
+    const { datos } = await enviarCodigo("/intermedio");
     if (!datos.ok) {
       pintarErrores(datos.errores || ["No se pudo generar el código intermedio."], false);
       return;
@@ -222,20 +204,11 @@ function pintarTablaCO(cuerpo, filas) {
   }
 }
 
-btnCO.addEventListener("click", async function () {
+btnCO.addEventListener("click", async () => {
   limpiarObjeto();
 
   try {
-    const respuesta = await fetch("/objeto", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        codigo: cajaCodigo.value,
-      }),
-    });
-    const datos = await respuesta.json();
+    const { datos } = await enviarCodigo("/objeto");
 
     if (!datos.ok) {
       const listaErrores = datos.errores || ["No se pudo generar el código objeto."];

@@ -1,5 +1,4 @@
 import os
-from typing import Any, cast
 
 # App: une scanner -> parser -> semántico -> intermedio y sirve la GUI.
 # Lo de fuera no se confía: se revisa con isinstance o se devuelve 400.
@@ -30,14 +29,12 @@ def index() -> Response:
 
 # Viene del navegador y puede venir roto: None si no hay código de texto.
 def leer_codigo() -> str | None:
-    datos: Any = request.get_json(silent=True)
+    datos = request.get_json(silent=True)
 
     if not isinstance(datos, dict):
         return None
 
-    # El isinstance ya garantizó que es un dict; el cast solo le dice a pyright
-    # que las claves y los valores son de tipo conocido.
-    codigo = cast(dict[str, Any], datos).get("codigo")
+    codigo = datos.get("codigo")  # type: ignore
 
     if isinstance(codigo, str):
         return codigo

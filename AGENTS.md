@@ -30,9 +30,12 @@ sobre DRY y sobre ceremonia.
 - `tabla[nombre] = tipo` se guarda incluso con error de tipos;
   `return` temprano solo ante redeclaración. `linea` se captura ANTES
   de consumir la expresión. No "optimizar" esto: evita errores en cascada.
-- GUI: 3 paneles fijos + panel CI abajo-izquierda al 50%. Cada fase limpia
-  sus salidas sola (no existe botón Limpiar). Éxito en verde `#1e7d32`,
-  error en rojo, fuentes modo proyector (código 20px, UI 18px).
+- GUI: base 1920×1080 escalada con `zoom`; arriba PROGRAMA/TOKENS (528px
+  cada uno) y PARSER/SEMÁNTICO (784px); abajo CI y CO al 50% cada uno
+  (928px), con DATOS arriba y CÓDIGO abajo.
+  Cada fase limpia sus salidas sola (no existe botón Limpiar). Éxito en
+  verde `#065F46`, error en rojo `#991B1B`, fuentes modo proyector
+  (texto/UI 22px, tablas 20px).
 
 ## Guardarraíles
 
@@ -46,8 +49,7 @@ sobre DRY y sobre ceremonia.
 
 - No digas que algo funciona ni que las pruebas pasan si no ejecutaste el
   comando. Muestra el comando y su salida real.
-- Si algo no se puede verificar (falta un ensamblador, falta `dosbox`),
-  dilo explícito. "Debería andar" no es "anda".
+- Si algo no se puede verificar, dilo explícito. "Debería andar" no es "anda".
 - No debilites ni borres pruebas, ni silencies errores, para que pase el CI.
 - No uses `push --force` ni `reset --hard` sin autorización.
 - El código tiene que quedar explicable en el examen: ante dos soluciones,

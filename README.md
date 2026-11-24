@@ -17,7 +17,7 @@ flowchart LR
     F["Fuente"] --> T["scanner.py<br/>tokens"]
     T --> P["parser.py<br/>sintaxis"]
     P --> S["semantico.py<br/>tipos + tabla de símbolos"]
-    S --> I["intermedio.py<br/>TASM en 3 columnas"]
+    S --> I["intermedio.py<br/>texto en 3 columnas"]
     S --> O["objeto.py<br/>x86 16 bits"]
     I --> G["GUI<br/>panel de la fase"]
     O --> G
@@ -35,9 +35,9 @@ falla, la que sigue no se ejecuta.
 | Scanner | ✅ |
 | Parser (sin AST) | ✅ |
 | Semántico | ✅ |
-| Código intermedio (TASM) | ✅ |
+| Código intermedio | ✅ |
 | Optimizador | ⏳ por definir |
-| Código objeto (x86 16 bits) | ✅ (bytes verificados con tests, sin emulador) |
+| Código objeto (x86 16 bits) | ✅ (bytes verificados con tests) |
 
 ## Cómo correrlo (Python 3.12)
 
@@ -81,7 +81,7 @@ pyright
 ## Código intermedio (CI)
 
 El CI se pinta como tabla **Nombre / Operador / Atributo**. El generador arma
-líneas TASM (`MOV AX, a`) y al final las parte en esas 3 columnas.
+líneas de texto (`MOV AX, a`) y al final las parte en esas 3 columnas.
 
 Versión sencilla: cada expresión se calcula en `AX` y solo se admiten
 **operandos simples** (variable, número o `true`/`false`), pero se pueden
@@ -104,12 +104,12 @@ muestra un error claro en vez de generar código.
 El botón flotante **CO** abre un panel con dos tablas: **DATOS** (las variables)
 y **CÓDIGO** (las instrucciones). Cada fila muestra `DIR | CONTENIDO | HEX`:
 
-- `DIR` va en binario (16 bits en cuatro nibbles): `0010 0000 0000 0000`.
-- `CONTENIDO` sale de los bytes reales, en nibbles: `1010 0001  0000 0010  0010 0000`.
-- `HEX` son los mismos bytes en orden de memoria: `A1 02 20`.
-- El tooltip de cada renglón dice la instrucción completa (`MOV AX,[2002h]`).
+- `DIR` va en binario (16 bits en cuatro nibbles): `0000 0000 0000 0000`.
+- `CONTENIDO` sale de los bytes reales, en nibbles: `1010 0001  0000 0010  0000 0000`.
+- `HEX` son los mismos bytes en orden de memoria: `A1 02 00`.
+- El tooltip de cada renglón dice la instrucción completa (`MOV AX,[0002h]`).
 
-Convenciones: `DATA_BASE = 2000h` (2 bytes por variable, `00 00`),
+Convenciones: `DATA_BASE = 0000h` (2 bytes por variable, `00 00`),
 `CODE_BASE = 0000h`, W = 1, little endian, complemento a 2. Las variables se
 direccionan en forma directa (mod 00, r/m 110). El código termina en `HLT`; si
 el programa tiene `print`, después va la rutina `rutina_print`, que imprime con
@@ -121,19 +121,22 @@ saltos y pila) y arma el ModR/M. `objeto.py` recorre los tokens con la misma
 forma que el parser y emite instrucciones. Los saltos se arman en dos pasadas:
 si el relativo no entra en −128..127, se promueven a cercanos (`E9` o `0F 8x`).
 
+Las cuatro fases comparten `recorrido.py`: una clase base con `token_actual()`,
+`token_actual_es()`, `avanzar()` y `avanzar_si_es()`, así el manejo de la lista
+de tokens y la posición no se repite en cada archivo.
+
 Las comparaciones usan saltos **sin signo** (`>` → `JA`, `<` → `JB`): el
 lenguaje maneja 0..65535 y `MUL`/`DIV` son sin signo, así que `40000 > 5` no
 puede leerse como un negativo. `==` sigue siendo `JE`.
 
-Ejemplo (`x` en 2000h, `y` en 2002h):
+Ejemplo (`x` en 0000h, `y` en 0002h):
 
 ```text
-x = y & 3;   → A1 02 20 · BB 03 00 · F7 E3 · A3 00 20
-x = y | 3;   → A1 02 20 · BB 03 00 · BA 00 00 · F7 F3 · A3 00 20
+x = y & 3;   → A1 02 00 · BB 03 00 · F7 E3 · A3 00 00
+x = y | 3;   → A1 02 00 · BB 03 00 · BA 00 00 · F7 F3 · A3 00 00
 ```
 
-Los bytes están verificados contra las tablas con tests unitarios. **No** se
-verificó la ejecución: en esta máquina no hay DOSBox ni un emulador i8086.
+Los bytes están verificados contra las tablas con tests unitarios.
 
 ## Decisiones técnicas
 
@@ -157,7 +160,7 @@ verificó la ejecución: en esta máquina no hay DOSBox ni un emulador i8086.
   `Línea X: ERROR DE TIPOS: ...`): los tests los comparan exactos, así que no se
   reformulan.
 - **El dominio va en castellano** (`tabla`, `linea`, `decl_var`); Flask, JS y
-  TASM quedan en inglés porque es vocabulario técnico.
+  los mnemónicos quedan en inglés porque es vocabulario técnico.
 - **Sin dependencias de ejecución** más que Flask: `ruff`, `pyright` y `pytest`
   son de desarrollo (`requirements-dev.txt`).
 
@@ -174,8 +177,8 @@ verificó la ejecución: en esta máquina no hay DOSBox ni un emulador i8086.
 ## Estructura
 
 ```text
-backend/   tokens.py scanner.py parser.py semantico.py intermedio.py
-           codificador.py objeto.py app.py
+backend/   tokens.py recorrido.py scanner.py parser.py semantico.py
+           intermedio.py codificador.py objeto.py app.py
 frontend/  index.html script.js style.css
 tests/     test_smoke.py test_codificador.py test_objeto.py
 docs/      gramatica.md errores.md

@@ -16,7 +16,6 @@ from objeto import (
     Fila,
     FilaPanel,
     GeneradorObjeto,
-    ensamblar,
     formatear_binario,
     formatear_direccion,
     formatear_hex,
@@ -47,11 +46,8 @@ def generar(
 
 def filas_ensambladas(fuente: str, tabla: dict[str, str]) -> list[Fila]:
     generador = GeneradorObjeto(tokens_de(fuente), tabla)
-    items, errores = generador.generar()
-
-    assert errores == []
-
-    return ensamblar(items)
+    filas = generador.generar()
+    return [{"direccion": f[0], "bytes": f[1], "texto": f[2]} for f in filas]
 
 
 def tabla_real(fuente: str) -> tuple[list[Token], dict[str, str]]:
@@ -82,10 +78,10 @@ def test_ejemplo_mul():
     assert ok, errores
 
     assert [fila["hex"] for fila in codigo[:4]] == [
-        "A1 02 20",
+        "A1 02 00",
         "BB 03 00",
         "F7 E3",
-        "A3 00 20",
+        "A3 00 00",
     ]
     assert [fila["direccion"] for fila in codigo[:4]] == [
         "0000 0000 0000 0000",
@@ -94,10 +90,10 @@ def test_ejemplo_mul():
         "0000 0000 0000 1000",
     ]
     assert [fila["contenido"] for fila in codigo[:4]] == [
-        "1010 0001  0000 0010  0010 0000",
+        "1010 0001  0000 0010  0000 0000",
         "1011 1011  0000 0011  0000 0000",
         "1111 0111  1110 0011",
-        "1010 0011  0000 0000  0010 0000",
+        "1010 0011  0000 0000  0000 0000",
     ]
 
 
@@ -107,11 +103,11 @@ def test_ejemplo_div():
     assert ok, errores
 
     assert [fila["hex"] for fila in codigo[:5]] == [
-        "A1 02 20",
+        "A1 02 00",
         "BB 03 00",
         "BA 00 00",
         "F7 F3",
-        "A3 00 20",
+        "A3 00 00",
     ]
     assert [fila["direccion"] for fila in codigo[:5]] == [
         "0000 0000 0000 0000",
@@ -129,8 +125,8 @@ def test_datos_de_las_variables():
     assert ok, errores
 
     assert [fila["direccion"] for fila in datos] == [
-        "0010 0000 0000 0000",
-        "0010 0000 0000 0010",
+        "0000 0000 0000 0000",
+        "0000 0000 0000 0010",
     ]
     assert [fila["contenido"] for fila in datos] == [
         "0000 0000  0000 0000",
@@ -164,11 +160,11 @@ def test_declaracion_guarda_en_su_direccion():
     assert ok, errores
 
     assert codigo[0]["hex"] == "B8 05 00"  # MOV AX,5
-    assert codigo[1]["hex"] == "A3 00 20"  # MOV [2000h],AX
+    assert codigo[1]["hex"] == "A3 00 00"  # MOV [0000h],AX
 
 
 def test_if_genera_cmp_y_salto():
-    fuente = "{ if (x == 0) { y = 1; } else { y = 2; } }"
+    fuente = "{ if (x == 0) { y = 1; } }"
 
     ok, _, codigo, errores = generar(fuente, TABLA)
 
@@ -179,7 +175,6 @@ def test_if_genera_cmp_y_salto():
 
     assert "3D 00 00" in hexes  # CMP AX,0
     assert any(texto.startswith("JE ") for texto in textos)
-    assert any(texto.startswith("JMP ") for texto in textos)
 
 
 def test_while_vuelve_al_inicio():
@@ -205,21 +200,21 @@ def test_programa_completo_con_while():
     assert ok, errores
 
     assert [fila["hex"] for fila in codigo] == [
-        "B8 05 00",  # 0000  MOV AX,5
-        "A3 00 20",  # 0003  MOV [2000h],AX
-        "A1 00 20",  # 0006  MOV AX,[2000h]
-        "3D 00 00",  # 0009  CMP AX,0
-        "77 05",  # 000C  JA  CMP_VERDADERO
-        "B8 00 00",  # 000E  MOV AX,0
-        "EB 03",  # 0011  JMP CMP_FIN
-        "B8 01 00",  # 0013  MOV AX,1
-        "3D 00 00",  # 0016  CMP AX,0
-        "74 0B",  # 0019  JE  WHILE_FIN
-        "A1 00 20",  # 001B  MOV AX,[2000h]
-        "2D 01 00",  # 001E  SUB AX,1
-        "A3 00 20",  # 0021  MOV [2000h],AX
-        "EB E0",  # 0024  JMP WHILE_INICIO (-32)
-        "F4",  # 0026  HLT
+        "B8 05 00",  # 0000  MOV AX, 5
+        "A3 00 00",  # 0003  MOV [0000h], AX
+        "A1 00 00",  # 0006  MOV AX, [0000h]
+        "3D 00 00",  # 0009  CMP AX, 0
+        "0F 87 06 00",  # 000C  JA CMP_VERDADERO
+        "B8 00 00",  # 0010  MOV AX, 0
+        "E9 03 00",  # 0013  JMP CMP_FIN
+        "B8 01 00",  # 0016  MOV AX, 1
+        "3D 00 00",  # 0019  CMP AX, 0
+        "0F 84 0C 00",  # 001C  JE WHILE_FIN
+        "A1 00 00",  # 0020  MOV AX, [0000h]
+        "2D 01 00",  # 0023  SUB AX, 1
+        "A3 00 00",  # 0026  MOV [0000h], AX
+        "E9 DA FF",  # 0029  JMP WHILE_INICIO
+        "F4",  # 002C  HLT
     ]
     assert [fila["direccion"] for fila in filas_ensambladas(fuente, tabla)] == [
         0x0000,
@@ -227,16 +222,16 @@ def test_programa_completo_con_while():
         0x0006,
         0x0009,
         0x000C,
-        0x000E,
-        0x0011,
+        0x0010,
         0x0013,
         0x0016,
         0x0019,
-        0x001B,
-        0x001E,
-        0x0021,
-        0x0024,
+        0x001C,
+        0x0020,
+        0x0023,
         0x0026,
+        0x0029,
+        0x002C,
     ]
 
 
@@ -281,28 +276,24 @@ def test_print_agrega_coc_y_resi_a_los_datos():
 
     assert ok, errores
 
-    # x ocupa 2000h-2001h; COC y RESI son de 1 byte: 2002h y 2003h.
+    # x ocupa 0000h-0001h; COC y RESI son de 1 byte: 0002h y 0003h.
     assert [fila["direccion"] for fila in datos] == [
-        "0010 0000 0000 0000",
-        "0010 0000 0000 0010",
-        "0010 0000 0000 0011",
+        "0000 0000 0000 0000",
+        "0000 0000 0000 0010",
+        "0000 0000 0000 0011",
     ]
     assert [fila["hex"] for fila in datos] == ["00 00", "00", "00"]
 
 
 def test_print_de_un_literal_fuera_de_rango():
-    ok, _, _, errores = generar("{ print ( 200 ); }", TABLA)
-
-    assert not ok
-    assert errores == [
-        "Línea 1: ERROR DE CÓDIGO OBJETO: "
-        "El print solo imprime de 0 a 99, y el valor es 200.",
-    ]
+    tokens = tokens_de("{ print ( 200 ); }")
+    es_valido, errores = AnalizadorSemantico(tokens).analizar()
+    assert not es_valido
+    assert any("print solo acepta una variable" in e for e in errores)
 
 
 def test_print_de_una_operacion_que_da_dos_cifras():
-    # 200 # 100 da 100, pero no es un literal suelto: no se rechaza.
-    ok, _, _, errores = generar("{ print ( 200 # 100 ); }", TABLA)
+    ok, _, _, errores = generar("{ x = 200 # 100; print ( x ); }", TABLA)
 
     assert ok, errores
 
@@ -335,9 +326,9 @@ def test_suma_con_variable_y_numero():
     assert ok, errores
 
     assert [fila["hex"] for fila in codigo[:3]] == [
-        "A1 02 20",
+        "A1 02 00",
         "05 05 00",
-        "A3 00 20",
+        "A3 00 00",
     ]
 
 
@@ -407,7 +398,7 @@ def test_while_con_parentesis():
     hexes = [fila["hex"] for fila in codigo]
 
     assert hexes[-1] == "F4"  # HLT: se consumieron todos los tokens
-    assert hexes[-2].startswith("EB")  # JMP de vuelta al inicio
+    assert hexes[-2].startswith("E9")  # JMP de vuelta al inicio
 
 
 # ==================================
@@ -421,8 +412,8 @@ def test_salto_corto_cuando_entra():
 
     bytes_totales = b"".join(bytes(fila["bytes"]) for fila in filas)
 
-    assert 0x74 in bytes_totales  # JE corto
-    assert 0xEB in bytes_totales  # JMP corto
+    assert b"\x0f\x84" in bytes_totales  # JE cercano
+    assert 0xE9 in bytes_totales  # JMP cercano
 
 
 def test_salto_cercano_cuando_no_entra():
@@ -470,7 +461,7 @@ def test_variable_no_declarada_en_mul_div():
     ]
 
 
-# El generador sigue después del error: se muestran todos, cada uno con su línea.
+# El generador detiene su ejecución al primer error.
 def test_variables_no_declaradas_conservan_su_linea():
     fuente = "{\n x = z @ 1;\n y = w @ 2;\n}"
 
@@ -479,14 +470,13 @@ def test_variables_no_declaradas_conservan_su_linea():
     assert not ok
     assert errores == [
         "Línea 2: ERROR DE CÓDIGO OBJETO: La variable 'z' no ha sido declarada.",
-        "Línea 3: ERROR DE CÓDIGO OBJETO: La variable 'w' no ha sido declarada.",
     ]
 
 
 def test_numero_fuera_de_16_bits():
-    ok, _, _, errores = generar("{ x = 70000; }", TABLA)
-
-    assert not ok
+    tokens = tokens_de("{ x = 70000; }")
+    es_valido, errores = AnalizadorSemantico(tokens).analizar()
+    assert not es_valido
     assert any("no entra en 16 bits" in error for error in errores)
 
 
@@ -502,9 +492,7 @@ def test_formatear_direccion():
 
 
 def test_formatear_binario():
-    assert formatear_binario([0x89, 0x06, 0x00, 0x20]) == (
-        "1000 1001  0000 0110  0000 0000  0010 0000"
-    )
+    assert formatear_binario([0x89, 0x06, 0x00, 0x20]) == ("1000 1001  0000 0110  0000 0000  0010 0000")
 
 
 def test_formatear_hex():

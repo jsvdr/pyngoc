@@ -14,148 +14,158 @@
 
   <main class="app">
 
-    <!-- PROGRAMA -->
-    <section class="panel programa-panel">
+    <!-- FILA SUPERIOR -->
+    <div class="fila-superior">
 
-      <div class="panel-header">
+      <!-- PROGRAMA -->
+      <section class="panel programa-panel">
 
-        <h2>PROGRAMA:</h2>
+        <div class="panel-header">
 
-        <label for="fileInput" class="file-button">
-          Cargar Archivo
-        </label>
+          <h2>PROGRAMA:</h2>
 
-        <input type="file" id="fileInput" accept=".txt,.pyn" hidden />
+          <label for="fileInput" class="file-button">
+            Cargar Archivo
+          </label>
 
-      </div>
+          <input type="file" id="fileInput" accept=".txt,.pyn" hidden />
 
-      <textarea id="codigo" spellcheck="false">{
+        </div>
+
+        <textarea id="codigo" spellcheck="false">{
     int a = 1;
     int b = 2;
     int c = a @ b;
     print ( c );
 }</textarea>
 
-    </section>
+      </section>
 
 
-    <!-- TOKENS -->
-    <section class="panel tokens-panel">
+      <!-- TOKENS -->
+      <section class="panel tokens-panel">
 
-      <button id="btnTokens" class="main-button">
-        TOKENS
-      </button>
-
-      <textarea id="tokens" readonly spellcheck="false" placeholder="Los tokens aparecerán aquí..."></textarea>
-
-    </section>
-
-
-    <!-- PARSER Y SEMÁNTICO -->
-    <section class="panel errores-panel">
-
-      <div class="analysis-buttons">
-
-        <button id="btnParser" class="analysis-button">
-          Parser
+        <button type="button" id="btnTokens" class="main-button">
+          TOKENS
         </button>
 
-        <button id="btnSemantico" class="analysis-button">
-          Semántico
+        <textarea id="tokens" readonly spellcheck="false" placeholder="Los tokens aparecerán aquí..."></textarea>
+
+      </section>
+
+
+      <!-- PARSER Y SEMÁNTICO -->
+      <section class="panel errores-panel">
+
+        <div class="analysis-buttons">
+
+          <button type="button" id="btnParser" class="analysis-button">
+            Parser
+          </button>
+
+          <button type="button" id="btnSemantico" class="analysis-button">
+            Semántico
+          </button>
+
+        </div>
+
+        <textarea id="errores" readonly spellcheck="false" placeholder="Resultado del análisis..."></textarea>
+
+      </section>
+
+    </div>
+
+
+    <!-- FILA INFERIOR -->
+    <div class="fila-inferior">
+
+      <!-- CÓDIGO INTERMEDIO -->
+      <section class="panel ci-panel">
+
+        <button type="button" id="btnCI" class="main-button">
+          CI
         </button>
 
-      </div>
+        <div class="tabla-ci-contenedor">
 
-      <textarea id="errores" readonly spellcheck="false" placeholder="Resultado del análisis..."></textarea>
-
-    </section>
-
-
-    <!-- CÓDIGO INTERMEDIO -->
-    <section class="panel ci-panel">
-
-      <button id="btnCI" class="main-button">
-        CI
-      </button>
-
-      <div class="tabla-ci-contenedor">
-
-        <table class="tabla-ci">
-
-          <thead>
-            <tr>
-              <th>NOMBRE</th>
-              <th>OPERADOR</th>
-              <th>ATRIBUTO</th>
-            </tr>
-          </thead>
-
-          <tbody id="cuerpoIntermedio"></tbody>
-
-        </table>
-
-      </div>
-
-    </section>
-
-
-    <!-- CÓDIGO OBJETO -->
-    <section class="panel co-panel">
-
-      <button id="btnCO" class="main-button">
-        CO
-      </button>
-
-      <div id="errorCO" class="co-error"></div>
-
-      <div class="co-tabla-contenedor">
-
-        <!-- DATOS -->
-        <section class="co-grupo">
-
-          <h3>DATOS</h3>
-
-          <table class="tabla-co">
+          <table class="tabla-ci">
 
             <thead>
               <tr>
-                <th>DIR</th>
-                <th>CONTENIDO</th>
-                <th>HEX</th>
+                <th>NOMBRE</th>
+                <th>OPERADOR</th>
+                <th>ATRIBUTO</th>
               </tr>
             </thead>
 
-            <tbody id="cuerpoDatosCO"></tbody>
+            <tbody id="cuerpoIntermedio"></tbody>
 
           </table>
 
-        </section>
+        </div>
+
+      </section>
 
 
-        <!-- CÓDIGO -->
-        <section class="co-grupo">
+      <!-- CÓDIGO OBJETO -->
+      <section class="panel co-panel">
 
-          <h3>CÓDIGO</h3>
+        <button type="button" id="btnCO" class="main-button">
+          CO
+        </button>
 
-          <table class="tabla-co">
+        <div id="errorCO" class="co-error"></div>
 
-            <thead>
-              <tr>
-                <th>DIR</th>
-                <th>CONTENIDO</th>
-                <th>HEX</th>
-              </tr>
-            </thead>
+        <div class="co-tabla-contenedor">
 
-            <tbody id="cuerpoCodigoCO"></tbody>
+          <!-- DATOS -->
+          <section class="co-grupo">
 
-          </table>
+            <h3>DATOS</h3>
 
-        </section>
+            <table class="tabla-co">
 
-      </div>
+              <thead>
+                <tr>
+                  <th>DIR</th>
+                  <th>CONTENIDO</th>
+                  <th>HEX</th>
+                </tr>
+              </thead>
 
-    </section>
+              <tbody id="cuerpoDatosCO"></tbody>
+
+            </table>
+
+          </section>
+
+
+          <!-- CÓDIGO -->
+          <section class="co-grupo">
+
+            <h3>CÓDIGO</h3>
+
+            <table class="tabla-co">
+
+              <thead>
+                <tr>
+                  <th>DIR</th>
+                  <th>CONTENIDO</th>
+                  <th>HEX</th>
+                </tr>
+              </thead>
+
+              <tbody id="cuerpoCodigoCO"></tbody>
+
+            </table>
+
+          </section>
+
+        </div>
+
+      </section>
+
+    </div>
 
   </main>
 

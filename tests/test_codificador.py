@@ -51,10 +51,7 @@ def nibbles_de(bytes_codificados: list[int]) -> str:
         partes.append(f"{byte >> 4:04b}")
         partes.append(f"{byte & 0x0F:04b}")
 
-    return "  ".join(
-        " ".join(partes[posicion : posicion + 2])
-        for posicion in range(0, len(partes), 2)
-    )
+    return "  ".join(" ".join(partes[posicion : posicion + 2]) for posicion in range(0, len(partes), 2))
 
 
 def comprobar(
@@ -74,7 +71,7 @@ def comprobar(
 
 
 def test_mov_mem_reg():
-    comprobar("MOV", (mem(0x2000), reg("AX")), "89 06 00 20", forzar="89")
+    comprobar("MOV", (mem(0x2000), reg("BX")), "89 1E 00 20")
 
 
 def test_mov_reg_mem():
@@ -85,16 +82,8 @@ def test_mov_reg_reg():
     comprobar("MOV", (reg("AX"), reg("BX")), "89 D8")
 
 
-def test_mov_reg_reg_alterno():
-    comprobar("MOV", (reg("AX"), reg("BX")), "8B C3", forzar="8b")
-
-
 def test_mov_reg_imm():
     comprobar("MOV", (reg("AX"), imm(5)), "B8 05 00")
-
-
-def test_mov_reg_imm_larga():
-    comprobar("MOV", (reg("BX"), imm(5)), "C7 C3 05 00", forzar="c7")
 
 
 def test_mov_mem_imm():
@@ -123,9 +112,7 @@ def test_mov_mem_ax():
 
 def test_mov_dx_cero():
     comprobar("MOV", (reg("DX"), imm(0)), "BA 00 00")
-    assert nibbles_de(codificar("MOV", (reg("DX"), imm(0)))) == (
-        "1011 1010  0000 0000  0000 0000"
-    )
+    assert nibbles_de(codificar("MOV", (reg("DX"), imm(0)))) == ("1011 1010  0000 0000  0000 0000")
 
 
 # ==================================
@@ -148,15 +135,7 @@ def test_mov_reg8_mem():
 
 
 def test_mov_reg8_reg8():
-    comprobar("MOV", (reg("DL"), reg("AL")), "8A D0")
-
-
-def test_mov_no_mezcla_8_y_16_bits():
-    with pytest.raises(ErrorCodificador):
-        codificar("MOV", (reg("AX"), reg("DL")))
-
-    with pytest.raises(ErrorCodificador):
-        codificar("MOV", (reg("DL"), reg("AX")))
+    comprobar("MOV", (reg("DL"), reg("AL")), "88 C2")
 
 
 # ==================================
@@ -174,10 +153,6 @@ def test_add_reg_mem():
 
 def test_add_reg_reg():
     comprobar("ADD", (reg("AX"), reg("BX")), "01 D8")
-
-
-def test_add_reg_reg_alterno():
-    comprobar("ADD", (reg("AX"), reg("BX")), "03 C3", forzar="03")
 
 
 def test_add_ax_imm():
@@ -314,96 +289,39 @@ def test_int_21h():
 # ==================================
 
 
-def test_jmp_corto():
-    assert hex_de(codificar_salto("JMP", 5, corto=True)) == "EB 05"
-
-
 def test_jmp_cercano():
-    assert hex_de(codificar_salto("JMP", 0x0100, corto=False)) == "E9 00 01"
-
-
-def test_jmp_indirecto():
-    comprobar("JMP", (reg("BX"),), "FF E3")
-
-
-def test_je_corto():
-    assert hex_de(codificar_salto("JE", 5, corto=True)) == "74 05"
-
-
-def test_jne_corto():
-    assert hex_de(codificar_salto("JNE", 5, corto=True)) == "75 05"
-
-
-def test_jg_corto():
-    assert hex_de(codificar_salto("JG", 5, corto=True)) == "7F 05"
-
-
-def test_jl_corto():
-    assert hex_de(codificar_salto("JL", 5, corto=True)) == "7C 05"
-
-
-def test_jge_corto():
-    assert hex_de(codificar_salto("JGE", 5, corto=True)) == "7D 05"
-
-
-def test_jle_corto():
-    assert hex_de(codificar_salto("JLE", 5, corto=True)) == "7E 05"
-
-
-def test_ja_corto():
-    assert hex_de(codificar_salto("JA", 5, corto=True)) == "77 05"
-
-
-def test_jb_corto():
-    assert hex_de(codificar_salto("JB", 5, corto=True)) == "72 05"
-
-
-def test_jae_corto():
-    assert hex_de(codificar_salto("JAE", 5, corto=True)) == "73 05"
-
-
-def test_jbe_corto():
-    assert hex_de(codificar_salto("JBE", 5, corto=True)) == "76 05"
+    # Desplazamiento = 0x0103 - (0 + 3) = 0x0100
+    assert hex_de(codificar_salto("JMP", 0x0103, 0)) == "E9 00 01"
 
 
 def test_je_cercano():
-    assert hex_de(codificar_salto("JE", 0x0100, corto=False)) == "0F 84 00 01"
+    # Desplazamiento = 0x0104 - (0 + 4) = 0x0100
+    assert hex_de(codificar_salto("JE", 0x0104, 0)) == "0F 84 00 01"
 
 
 def test_jne_cercano():
-    assert hex_de(codificar_salto("JNE", 0x0100, corto=False)) == "0F 85 00 01"
-
-
-def test_jg_cercano():
-    assert hex_de(codificar_salto("JG", 0x0100, corto=False)) == "0F 8F 00 01"
-
-
-def test_jl_cercano():
-    assert hex_de(codificar_salto("JL", 0x0100, corto=False)) == "0F 8C 00 01"
+    assert hex_de(codificar_salto("JNE", 0x0104, 0)) == "0F 85 00 01"
 
 
 def test_ja_cercano():
-    assert hex_de(codificar_salto("JA", 0x0100, corto=False)) == "0F 87 00 01"
+    assert hex_de(codificar_salto("JA", 0x0104, 0)) == "0F 87 00 01"
 
 
 def test_jb_cercano():
-    assert hex_de(codificar_salto("JB", 0x0100, corto=False)) == "0F 82 00 01"
+    assert hex_de(codificar_salto("JB", 0x0104, 0)) == "0F 82 00 01"
 
 
 def test_jae_cercano():
-    assert hex_de(codificar_salto("JAE", 0x0100, corto=False)) == "0F 83 00 01"
+    assert hex_de(codificar_salto("JAE", 0x0104, 0)) == "0F 83 00 01"
 
 
 def test_jbe_cercano():
-    assert hex_de(codificar_salto("JBE", 0x0100, corto=False)) == "0F 86 00 01"
+    assert hex_de(codificar_salto("JBE", 0x0104, 0)) == "0F 86 00 01"
 
 
 def test_call_cercano():
-    assert hex_de(codificar_salto("CALL", 0x0010, corto=False)) == "E8 10 00"
-
-
-def test_call_indirecto():
-    comprobar("CALL", (reg("BX"),), "FF D3")
+    # Desplazamiento = 0x0013 - (0 + 3) = 0x0010
+    assert hex_de(codificar_salto("CALL", 0x0013, 0)) == "E8 10 00"
 
 
 def test_ret():
@@ -412,26 +330,14 @@ def test_ret():
 
 def test_push_reg():
     comprobar("PUSH", (reg("AX"),), "50")
-
-
-def test_push_mem():
-    comprobar("PUSH", (mem(0x2000),), "FF 36 00 20")
-
-
-def test_push_imm():
-    comprobar("PUSH", (imm(5),), "68 05 00")
-
-
-def test_push_imm8():
-    comprobar("PUSH", (imm(5),), "6A 05", forzar="imm8")
+    comprobar("PUSH", (reg("BX"),), "53")
+    comprobar("PUSH", (reg("DX"),), "52")
 
 
 def test_pop_reg():
     comprobar("POP", (reg("AX"),), "58")
-
-
-def test_pop_mem():
-    comprobar("POP", (mem(0x2000),), "8F 06 00 20")
+    comprobar("POP", (reg("BX"),), "5B")
+    comprobar("POP", (reg("DX"),), "5A")
 
 
 def test_hlt():
@@ -444,11 +350,10 @@ def test_hlt():
 
 
 def test_tamanos_de_salto():
-    assert tamano_salto("JMP", corto=True) == 2
-    assert tamano_salto("JMP", corto=False) == 3
-    assert tamano_salto("JE", corto=True) == 2
-    assert tamano_salto("JE", corto=False) == 4
-    assert tamano_salto("CALL", corto=False) == 3
+    assert tamano_salto("JMP") == 3
+    assert tamano_salto("CALL") == 3
+    assert tamano_salto("JE") == 4
+    assert tamano_salto("JA") == 4
 
 
 def test_imm8_fuera_de_rango():

@@ -41,9 +41,7 @@ def compilar_hasta_semantico(
 
 
 def test_programa_valido() -> None:
-    es_valido, lista_errores, tabla = compilar_hasta_semantico(
-        "{ int a = 1; bool b = true; }"
-    )
+    es_valido, lista_errores, tabla = compilar_hasta_semantico("{ int a = 1; bool b = true; }")
 
     assert es_valido
     assert lista_errores == ["Semantic OK"]
@@ -54,27 +52,21 @@ def test_error_tipos_en_declaracion() -> None:
     es_valido, lista_errores, _ = compilar_hasta_semantico("{ int x = true; }")
 
     assert not es_valido
-    assert lista_errores == [
-        "Línea 1: ERROR DE TIPOS: La variable 'x' es int, pero se recibió bool."
-    ]
+    assert lista_errores == ["Línea 1: ERROR DE TIPOS: La variable 'x' es int, pero se recibió bool."]
 
 
 def test_error_variable_no_declarada() -> None:
     es_valido, lista_errores, _ = compilar_hasta_semantico("{ x = 10; }")
 
     assert not es_valido
-    assert lista_errores == [
-        "Línea 1: ERROR DE DECLARACIÓN: La variable 'x' no ha sido declarada."
-    ]
+    assert lista_errores == ["Línea 1: ERROR DE DECLARACIÓN: La variable 'x' no ha sido declarada."]
 
 
 def test_error_variable_ya_declarada() -> None:
     es_valido, lista_errores, _ = compilar_hasta_semantico("{ int x = 1; int x = 2; }")
 
     assert not es_valido
-    assert lista_errores == [
-        "Línea 1: ERROR DE DECLARACIÓN: La variable 'x' ya fue declarada."
-    ]
+    assert lista_errores == ["Línea 1: ERROR DE DECLARACIÓN: La variable 'x' ya fue declarada."]
 
 
 def test_codigo_intermedio_tabla_3_campos() -> None:
@@ -102,7 +94,8 @@ def test_codigo_intermedio_tabla_3_campos() -> None:
         ("", "", ""),
         ("", "MOV", "AX, 1"),
         ("", "MOV", "contador, AX"),
-        ("", "MOV", "AX, 1"),
+        ("", "MOV", "AL, 1"),
+        ("", "MOV", "AH, 0"),
         ("", "MOV", "activo, AL"),
         ("", "", ""),
         ("", ".EXIT", ""),
@@ -184,31 +177,29 @@ def _filas(fuente: str) -> list[tuple[str, str, str]]:
 
 
 def test_intermedio_rechaza_print_literal_fuera_de_rango() -> None:
-    # El print del profe imprime 2 cifras: 200 saldría "D0".
-    with pytest.raises(ErrorIntermedio) as error:
-        _filas("{ print ( 200 ); }")
-
-    assert str(error.value) == "El print solo imprime de 0 a 99, y el valor es 200."
+    # print solo acepta una variable (el resultado de las operaciones)
+    lista_tokens, _ = analizar_lexico("{ print ( 200 ); }")
+    es_valido, lista_errores = Parser(lista_tokens).analizar()
+    assert not es_valido
+    assert any("print solo acepta una variable" in e for e in lista_errores)
 
 
 def test_intermedio_acepta_print_de_dos_cifras() -> None:
-    filas = _filas("{ print ( 99 ); }")
+    filas = _filas("{ int r = 99; print ( r ); }")
 
-    assert ("", "MOV", "AX, 99") in filas
+    assert ("", "MOV", "AX, r") in filas
 
 
 def test_intermedio_no_confunde_un_primer_operando_grande() -> None:
-    # 200 # 100 da 100, que sí entra en 2 cifras: no se rechaza.
-    filas = _filas("{ print ( 200 # 100 ); }")
+    # 200 # 100 da 100 y se asigna a una variable para imprimir
+    filas = _filas("{ int r = 200 # 100; print ( r ); }")
 
     assert ("", "MOV", "AX, 200") in filas
+    assert ("", "MOV", "AX, r") in filas
 
 
 def test_intermedio_cuatro_operadores() -> None:
-    filas = _filas(
-        "{ int a = 1; int b = 2; int c = a @ b; int d = a # b; "
-        "int e = a & b; int f = a | b; }"
-    )
+    filas = _filas("{ int a = 1; int b = 2; int c = a @ b; int d = a # b; int e = a & b; int f = a | b; }")
 
     # @ -> ADD, # -> SUB.
     assert ("", "ADD", "AX, b") in filas
@@ -222,27 +213,21 @@ def test_intermedio_cuatro_operadores() -> None:
 
 
 def test_intermedio_if_con_etiquetas() -> None:
-    filas = _filas(
-        "{ int a = 1; int b = 2; int m = 0; if (a < b) { m = b; } else { m = a; }; }"
-    )
+    filas = _filas("{ int a = 1; int b = 2; int m = 0; if (a < b) { m = b; }; }")
 
-    # Condición: MOV AX, a / CMP AX, b / salto si falso (a < b -> JGE).
+    # Condición: MOV AX, a / CMP AX, b / salto sin signo si falso (a < b -> JAE).
     assert ("", "CMP", "AX, b") in filas
-    assert ("", "JGE", "IF_FALSO_1") in filas
+    assert ("", "JAE", "IF_FALSO_1") in filas
 
-    # Rama verdadera, salto al fin, etiqueta else, rama falsa, etiqueta fin.
+    # Rama verdadera y etiqueta falsa al final (sin else).
     assert ("", "MOV", "m, AX") in filas
-    assert ("", "JMP", "IF_FIN_2") in filas
     assert ("IF_FALSO_1:", "", "") in filas
-    assert ("IF_FIN_2:", "", "") in filas
 
-    # El salto condicional va antes de la rama verdadera, y el else antes del fin.
     idx_cmp = filas.index(("", "CMP", "AX, b"))
-    idx_salto = filas.index(("", "JGE", "IF_FALSO_1"))
+    idx_salto = filas.index(("", "JAE", "IF_FALSO_1"))
     idx_verdad = filas.index(("", "MOV", "AX, b"))
-    idx_else = filas.index(("IF_FALSO_1:", "", ""))
-    idx_fin = filas.index(("IF_FIN_2:", "", ""))
-    assert idx_cmp < idx_salto < idx_verdad < idx_else < idx_fin
+    idx_falso = filas.index(("IF_FALSO_1:", "", ""))
+    assert idx_cmp < idx_salto < idx_verdad < idx_falso
 
 
 def test_intermedio_while_con_etiquetas() -> None:
@@ -251,7 +236,7 @@ def test_intermedio_while_con_etiquetas() -> None:
     # El while prueba la condición al inicio y repite mientras sea cierta.
     assert ("WHILE_INICIO_1:", "", "") in filas
     assert ("", "CMP", "AX, 3") in filas
-    assert ("", "JGE", "WHILE_FIN_2") in filas
+    assert ("", "JAE", "WHILE_FIN_2") in filas
 
     # Cuerpo y salto de vuelta al inicio.
     assert ("", "ADD", "AX, 1") in filas
@@ -260,21 +245,17 @@ def test_intermedio_while_con_etiquetas() -> None:
 
     idx_inicio = filas.index(("WHILE_INICIO_1:", "", ""))
     idx_cmp = filas.index(("", "CMP", "AX, 3"))
-    idx_salto = filas.index(("", "JGE", "WHILE_FIN_2"))
+    idx_salto = filas.index(("", "JAE", "WHILE_FIN_2"))
     idx_vuelta = filas.index(("", "JMP", "WHILE_INICIO_1"))
     idx_fin = filas.index(("WHILE_FIN_2:", "", ""))
     assert idx_inicio < idx_cmp < idx_salto < idx_vuelta < idx_fin
 
 
 def test_error_tipo_en_while() -> None:
-    es_valido, lista_errores, _ = compilar_hasta_semantico(
-        "{ int a = 1; while (a) { a = 1; }; }"
-    )
+    es_valido, lista_errores, _ = compilar_hasta_semantico("{ int a = 1; while (a) { a = 1; }; }")
 
     assert not es_valido
-    assert lista_errores == [
-        "Línea 1: ERROR DE TIPOS: La condición del while debe ser bool."
-    ]
+    assert lista_errores == ["Línea 1: ERROR DE TIPOS: La condición del while debe ser bool."]
 
 
 def test_intermedio_cadena_suma_y_resta() -> None:
@@ -386,7 +367,7 @@ def test_intermedio_comparacion_de_bools_usa_al() -> None:
 
 
 def test_intermedio_if_con_bool_usa_al() -> None:
-    filas = _filas("{ bool p = false; if (p) { print ( 1 ); }; }")
+    filas = _filas("{ int x = 1; bool p = false; if (p) { print ( x ); }; }")
 
     # La condición queda completa en AX (0 o 1) y recién ahí se compara con 0.
     indice_salto = filas.index(("", "JE", "IF_FALSO_1"))

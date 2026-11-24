@@ -27,3 +27,6 @@ Thumbs.db
 
 # Entorno (nunca subir claves)
 .env
+
+# Notas locales (no van al repo)
+KISS-sugerencias.md

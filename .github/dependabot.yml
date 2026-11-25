@@ -1,14 +1,25 @@
-# Opens a PR when dependencies are outdated or have a CVE.
+# Opens a PR when dependencies or actions are outdated or have a CVE.
 # This file does NOT live in workflows/, so it can be pushed normally.
 version: 2
 
 updates:
-  - package-ecosystem: "pip"
+  - package-ecosystem: "uv"
     directory: "/"
     schedule:
       interval: "monthly"
+    groups:
+      python-dependencies:
+        patterns: ["*"]
 
   - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: "pre-commit"
     directory: "/"
     schedule:
       interval: "monthly"

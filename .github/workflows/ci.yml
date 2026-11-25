@@ -1,20 +1,41 @@
 name: CI
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [main]
+  pull_request:
 
 permissions:
   contents: read
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13", "3.14"]
+
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10
         with:
-          python-version: "3.12"
-      - run: pip install -r requirements.txt -r requirements-dev.txt
-      - run: ruff check src/ tests/
-      - run: ruff format --check src/ tests/
-      - run: pyright
-      - run: pytest tests/ -q
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Format
+        run: uv run ruff format --check .
+
+      - name: Type check
+        run: uv run pyright
+
+      - name: Tests
+        run: uv run pytest

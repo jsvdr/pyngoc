@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: pyngo
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /healthz
+    autoDeploy: true

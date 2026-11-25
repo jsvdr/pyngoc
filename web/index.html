@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Pyngo - Compiler</title>
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+
+  <main class="app">
+
+    <!-- TOP ROW -->
+    <div class="top-row">
+
+      <!-- PROGRAM -->
+      <section class="panel program-panel">
+
+        <div class="panel-header">
+
+          <h2>PROGRAM:</h2>
+
+          <label for="fileInput" class="file-button">
+            Load File
+          </label>
+
+          <input type="file" id="fileInput" accept=".txt,.pyn" hidden />
+
+        </div>
+
+        <textarea id="source" spellcheck="false">{
+    int a = 1;
+    int b = 2;
+    int c = a @ b;
+    print ( c );
+}</textarea>
+
+      </section>
+
+
+      <!-- TOKENS -->
+      <section class="panel tokens-panel">
+
+        <button type="button" id="btnTokens" class="main-button">
+          TOKENS
+        </button>
+
+        <textarea id="tokens" readonly spellcheck="false" placeholder="Tokens will appear here..."></textarea>
+
+      </section>
+
+
+      <!-- PARSER AND SEMANTIC -->
+      <section class="panel errors-panel">
+
+        <div class="analysis-buttons">
+
+          <button type="button" id="btnParser" class="analysis-button">
+            Parser
+          </button>
+
+          <button type="button" id="btnSemantic" class="analysis-button">
+            Semantic
+          </button>
+
+        </div>
+
+        <textarea id="errors" readonly spellcheck="false" placeholder="Analysis result..."></textarea>
+
+      </section>
+
+    </div>
+
+
+    <!-- BOTTOM ROW -->
+    <div class="bottom-row">
+
+      <!-- INTERMEDIATE CODE -->
+      <section class="panel ir-panel">
+
+        <button type="button" id="btnIR" class="main-button">
+          IR
+        </button>
+
+        <div class="ir-table-container">
+
+          <table class="ir-table">
+
+            <thead>
+              <tr>
+                <th>NAME</th>
+                <th>OPERATOR</th>
+                <th>ATTRIBUTE</th>
+              </tr>
+            </thead>
+
+            <tbody id="irBody"></tbody>
+
+          </table>
+
+        </div>
+
+      </section>
+
+
+      <!-- OBJECT CODE -->
+      <section class="panel object-panel">
+
+        <button type="button" id="btnObject" class="main-button">
+          OBJECT CODE
+        </button>
+
+        <div id="objectError" class="object-error"></div>
+
+        <div class="object-table-container">
+
+          <!-- DATA -->
+          <section class="object-group">
+
+            <h3>DATA</h3>
+
+            <table class="object-table">
+
+              <thead>
+                <tr>
+                  <th>ADDRESS</th>
+                  <th>CONTENT</th>
+                  <th>HEX</th>
+                </tr>
+              </thead>
+
+              <tbody id="dataBody"></tbody>
+
+            </table>
+
+          </section>
+
+
+          <!-- CODE -->
+          <section class="object-group">
+
+            <h3>CODE</h3>
+
+            <table class="object-table">
+
+              <thead>
+                <tr>
+                  <th>ADDRESS</th>
+                  <th>CONTENT</th>
+                  <th>HEX</th>
+                </tr>
+              </thead>
+
+              <tbody id="codeBody"></tbody>
+
+            </table>
+
+          </section>
+
+        </div>
+
+      </section>
+
+    </div>
+
+  </main>
+
+  <script src="script.js"></script>
+
+</body>
+
+</html>

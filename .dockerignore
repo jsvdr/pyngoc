@@ -8,3 +8,7 @@ __pycache__/
 .github/
 .vscode/
 .idea/
+plantillas-pyngo/
+*.txt
+*.md
+!README.md

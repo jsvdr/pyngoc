@@ -1,22 +1,22 @@
-/* Pyngo - hoja de estilo para proyector.
-   Base 1920x1080 (script.js la escala a otras pantallas con zoom). */
+/* Pyngo - projector stylesheet.
+   Base 1920x1080 (script.js scales it to other screens with zoom). */
 
 :root {
-  --fondo: #F3F4F6;
+  --background: #F3F4F6;
   --panel: #E2E8F0;
-  --borde: #CBD5E1;
-  --tinta: #111827;
-  --tinta-suave: #475569;
-  --azul: #1D4ED8;
-  --azul-hover: #1E40AF;
-  --azul-activo: #1E3A8A;
-  --encabezado: #F1F5F9;
-  --cebra: #EEF2F7;
-  --linea: #94A3B8;
-  --foco: #F59E0B;
-  --error-fondo: #FEE2E2;
-  --error-texto: #991B1B;
-  --error-borde: #DC2626;
+  --border: #CBD5E1;
+  --ink: #111827;
+  --ink-muted: #475569;
+  --blue: #1D4ED8;
+  --blue-hover: #1E40AF;
+  --blue-active: #1E3A8A;
+  --header: #F1F5F9;
+  --zebra: #EEF2F7;
+  --line: #94A3B8;
+  --focus: #F59E0B;
+  --error-background: #FEE2E2;
+  --error-text: #991B1B;
+  --error-border: #DC2626;
   --mono: Consolas, "Cascadia Mono", "Courier New", monospace;
 }
 
@@ -25,18 +25,18 @@
 }
 
 html {
-  background: var(--fondo);
+  background: var(--background);
 }
 
 body {
   margin: 0;
   font-family: Arial, sans-serif;
-  color: var(--tinta);
+  color: var(--ink);
 }
 
-/* ---------- Pantalla: 24px de margen, 16px entre cajas ----------
-   Fila superior: 528 | 528 | 784.  Fila inferior: 50% | 50%.
-   Filas: 320px y 696px. */
+/* ---------- Screen: 24px margin, 16px between boxes ----------
+   Top row: 528 | 528 | 784.  Bottom row: 50% | 50%.
+   Rows: 320px and 696px. */
 .app {
   width: 1920px;
   height: 1080px;
@@ -47,7 +47,7 @@ body {
   gap: 16px;
 }
 
-.fila-superior {
+.top-row {
   display: grid;
   grid-template-columns: 528px 528px 1fr;
   gap: 16px;
@@ -55,7 +55,7 @@ body {
   min-height: 0;
 }
 
-.fila-inferior {
+.bottom-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
@@ -63,7 +63,7 @@ body {
   min-height: 0;
 }
 
-/* ---------- Cajas ---------- */
+/* ---------- Boxes ---------- */
 .panel {
   min-width: 0;
   min-height: 0;
@@ -71,7 +71,7 @@ body {
   flex-direction: column;
   padding: 16px;
   background: var(--panel);
-  border: 2px solid var(--borde);
+  border: 2px solid var(--border);
   border-radius: 12px;
 }
 
@@ -89,7 +89,7 @@ body {
   font-weight: 700;
 }
 
-/* ---------- Botones: 44px de alto, 22px ---------- */
+/* ---------- Buttons: 44px high, 22px ---------- */
 .file-button,
 .main-button,
 .analysis-button {
@@ -99,7 +99,7 @@ body {
   height: 44px;
   border: 0;
   border-radius: 8px;
-  background: var(--azul);
+  background: var(--blue);
   color: #FFFFFF;
   font: 700 22px Arial, sans-serif;
   cursor: pointer;
@@ -130,37 +130,37 @@ body {
 .file-button:hover,
 .main-button:hover,
 .analysis-button:hover {
-  background: var(--azul-hover);
+  background: var(--blue-hover);
 }
 
 .main-button:active,
 .analysis-button:active {
-  background: var(--azul-activo);
+  background: var(--blue-active);
 }
 
 .main-button:focus-visible,
 .analysis-button:focus-visible {
-  outline: 3px solid var(--foco);
+  outline: 3px solid var(--focus);
   outline-offset: 2px;
 }
 
-/* ---------- Cuadros de texto: 22px, interlineado 1.5 ---------- */
+/* ---------- Text boxes: 22px, 1.5 line height ---------- */
 textarea {
   flex: 1;
   min-height: 0;
   width: 100%;
   padding: 12px 16px;
   resize: none;
-  border: 2px solid var(--borde);
+  border: 2px solid var(--border);
   border-radius: 8px;
   outline: none;
   background: #FFFFFF;
-  color: var(--tinta);
+  color: var(--ink);
   font: 22px/1.5 var(--mono);
 }
 
 textarea:focus {
-  border-color: var(--azul);
+  border-color: var(--blue);
 }
 
 textarea::placeholder {
@@ -168,92 +168,92 @@ textarea::placeholder {
 }
 
 #tokens {
-  color: var(--azul-activo);
+  color: var(--blue-active);
 }
 
-#errores {
-  color: var(--error-texto);
+#errors {
+  color: var(--error-text);
 }
 
-/* ---------- Contenedores de tabla (CI y CO) ---------- */
-.tabla-ci-contenedor,
-.co-tabla-contenedor {
+/* ---------- Table containers (IR and object code) ---------- */
+.ir-table-container,
+.object-table-container {
   flex: 1;
   min-height: 0;
   overflow: auto;
   background: #FFFFFF;
-  border: 2px solid var(--borde);
+  border: 2px solid var(--border);
   border-radius: 8px;
 }
 
-.tabla-ci-contenedor {
+.ir-table-container {
   padding: 0 16px 12px;
 }
 
-.tabla-ci,
-.tabla-co {
+.ir-table,
+.object-table {
   width: 100%;
   border-collapse: collapse;
   font: 20px/1.35 var(--mono);
-  color: var(--tinta);
+  color: var(--ink);
 }
 
-.tabla-ci th,
-.tabla-ci td,
-.tabla-co th,
-.tabla-co td {
+.ir-table th,
+.ir-table td,
+.object-table th,
+.object-table td {
   padding: 3px 8px;
   text-align: left;
   vertical-align: top;
 }
 
-.tabla-ci th,
-.tabla-co th {
+.ir-table th,
+.object-table th {
   position: sticky;
   top: 0;
-  background: var(--encabezado);
-  border-bottom: 2px solid var(--linea);
+  background: var(--header);
+  border-bottom: 2px solid var(--line);
   font-weight: 700;
   letter-spacing: 0.06em;
 }
 
-/* ---------- CI: columnas 34% | 28% | 38% ---------- */
-.tabla-ci {
+/* ---------- IR: columns 34% | 28% | 38% ---------- */
+.ir-table {
   table-layout: fixed;
 }
 
-.tabla-ci th:nth-child(1) {
+.ir-table th:nth-child(1) {
   width: 34%;
 }
 
-.tabla-ci th:nth-child(2) {
+.ir-table th:nth-child(2) {
   width: 28%;
 }
 
-.tabla-ci th:nth-child(3) {
+.ir-table th:nth-child(3) {
   width: 38%;
 }
 
-.tabla-ci td {
+.ir-table td {
   overflow-wrap: anywhere;
 }
 
-.tabla-ci tr.separador td {
+.ir-table tr.separator td {
   height: 12px;
   padding: 0;
 }
 
-/* ---------- CO: DATOS arriba y CÓDIGO abajo, separados por 4px ----------
-   Las columnas se miden en caracteres (ch): 19 + 20 + 5 y 19 + 42 + 11. */
-.co-grupo {
+/* ---------- Object code: DATA above and CODE below, separated by 4px ----------
+   Columns are measured in characters (ch): 19 + 20 + 5 and 19 + 42 + 11. */
+.object-group {
   padding: 12px 8px 16px;
 }
 
-.co-grupo:last-child {
-  border-top: 4px solid var(--linea);
+.object-group:last-child {
+  border-top: 4px solid var(--line);
 }
 
-.co-grupo h3 {
+.object-group h3 {
   display: inline-block;
   margin: 0 0 10px;
   padding: 4px 12px;
@@ -262,89 +262,89 @@ textarea::placeholder {
   letter-spacing: 0.06em;
 }
 
-.co-grupo:first-child h3 {
+.object-group:first-child h3 {
   background: #FEF3C7;
   color: #78350F;
 }
 
-.co-grupo:last-child h3 {
+.object-group:last-child h3 {
   background: #DBEAFE;
   color: #1E3A8A;
 }
 
-.tabla-co {
+.object-table {
   table-layout: fixed;
 }
 
-.tabla-co th,
-.tabla-co td {
+.object-table th,
+.object-table td {
   white-space: pre;
 }
 
-.tabla-co tbody tr:nth-child(even) {
-  background: var(--cebra);
+.object-table tbody tr:nth-child(even) {
+  background: var(--zebra);
 }
 
-.tabla-co td:nth-child(1) {
-  color: var(--tinta-suave);
+.object-table td:nth-child(1) {
+  color: var(--ink-muted);
 }
 
-.tabla-co td:nth-child(3) {
-  color: var(--azul);
+.object-table td:nth-child(3) {
+  color: var(--blue);
   font-weight: 700;
 }
 
-.tabla-co th:nth-child(1),
-.tabla-co td:nth-child(1) {
+.object-table th:nth-child(1),
+.object-table td:nth-child(1) {
   width: calc(19ch + 16px);
 }
 
-.co-grupo:first-child .tabla-co {
+.object-group:first-child .object-table {
   width: calc(44ch + 48px);
 }
 
-.co-grupo:first-child .tabla-co th:nth-child(2),
-.co-grupo:first-child .tabla-co td:nth-child(2) {
+.object-group:first-child .object-table th:nth-child(2),
+.object-group:first-child .object-table td:nth-child(2) {
   width: calc(20ch + 16px);
 }
 
-.co-grupo:first-child .tabla-co th:nth-child(3),
-.co-grupo:first-child .tabla-co td:nth-child(3) {
+.object-group:first-child .object-table th:nth-child(3),
+.object-group:first-child .object-table td:nth-child(3) {
   width: calc(5ch + 16px);
 }
 
-.co-grupo:last-child .tabla-co th:nth-child(3),
-.co-grupo:last-child .tabla-co td:nth-child(3) {
+.object-group:last-child .object-table th:nth-child(3),
+.object-group:last-child .object-table td:nth-child(3) {
   width: calc(11ch + 16px);
 }
 
-/* ---------- Errores del CO ---------- */
-.co-error {
+/* ---------- Object code errors ---------- */
+.object-error {
   flex-shrink: 0;
   margin-bottom: 10px;
-  color: var(--error-texto);
+  color: var(--error-text);
   font: 20px/1.5 var(--mono);
   white-space: pre-wrap;
 }
 
-.co-error:empty {
+.object-error:empty {
   display: none;
 }
 
-.co-error:not(:empty) {
+.object-error:not(:empty) {
   padding: 10px 14px;
-  border-left: 6px solid var(--error-borde);
+  border-left: 6px solid var(--error-border);
   border-radius: 6px;
-  background: var(--error-fondo);
+  background: var(--error-background);
 }
 
-/* ---------- Barras de desplazamiento visibles en proyector ---------- */
+/* ---------- Scrollbars visible on a projector ---------- */
 *::-webkit-scrollbar {
   width: 14px;
   height: 14px;
 }
 
 *::-webkit-scrollbar-thumb {
-  background: var(--linea);
+  background: var(--line);
   border-radius: 7px;
 }

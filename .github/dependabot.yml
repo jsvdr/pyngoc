@@ -1,5 +1,5 @@
-# Avisa de dependencias desactualizadas o con CVEs abriendo un PR.
-# Este archivo NO vive en workflows/, asi que se pushea normal.
+# Opens a PR when dependencies are outdated or have a CVE.
+# This file does NOT live in workflows/, so it can be pushed normally.
 version: 2
 
 updates:

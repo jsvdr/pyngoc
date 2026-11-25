@@ -3,8 +3,8 @@ from enum import IntEnum
 from typing import override
 
 
-# Tokens: qué es cada pedazo del texto (int, if, @, ...).
-# No revisa nada, solo guarda kind + lexeme + line.
+# Tokens: what each piece of the source text is (int, if, @, ...).
+# It checks nothing; it only stores kind + lexeme + line.
 class TokenKind(IntEnum):
     EOF = 0
 

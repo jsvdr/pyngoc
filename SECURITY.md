@@ -1,30 +1,31 @@
-# Política de seguridad
+# Security policy
 
-Proyecto didáctico (compilador Pyngo). Sin datos de usuarios,
-sin secretos y sin despliegue productivo.
+Pyngo is a didactic compiler. It has no user data, no secrets and no
+production database.
 
-## Reportar una vulnerabilidad
+## Reporting a vulnerability
 
-Abre un Issue privado en este repositorio describiendo el problema
-y cómo reproducirlo. Responderemos en un máximo de 90 días.
+Open a private Issue in this repository describing the problem and how to
+reproduce it. We will respond within 90 days.
 
-## Alcance
+## Scope
 
-- `backend/app.py` (superficie HTTP local: `127.0.0.1:5000`)
-- Dependencias fijadas en `requirements.txt`
+- `src/pyngo/app.py` (HTTP surface: `127.0.0.1:5000` locally, `0.0.0.0` in
+  containers)
+- Dependencies pinned in `pyproject.toml` / `uv.lock`
 
-El resto (`scanner.py`, `parser.py`, `semantico.py`, `frontend/`)
-no procesa entrada de red directamente.
+The rest (`lexer.py`, `parser.py`, `semantic.py`, `ir.py`, `codegen.py`,
+`encoder.py`, `web/`) does not process network input directly.
 
-## Qué puede salir mal (modelado rápido)
+## What can go wrong (quick threat model)
 
-- **Entrada del usuario:** el texto pegado se procesa en el servidor. Está
-  acotado a 64 KB (`MAX_CONTENT_LENGTH`), pero un programa muy anidado puede
-  agotar la recursión de Python y devolver un 500. Nunca se ejecuta código.
-- **Modo debug:** `FLASK_DEBUG=1` activa el debugger de Flask, que permite
-  ejecutar código desde el navegador. Por eso la app escucha solo en
-  `127.0.0.1` y el debug está apagado por defecto. No exponerla en red.
-- **Inyección:** el frontend pinta todo con `textContent`, nunca con
-  `innerHTML`, así que el código del usuario no puede inyectar HTML.
-- **Datos:** no hay base de datos, ni sesiones, ni autenticación. No hay
-  nada que filtrar ni que perder.
+- **User input:** pasted text is processed on the server. It is limited to
+  64 KB (`MAX_CONTENT_LENGTH`), but a deeply nested program can exhaust
+  Python's recursion limit and return a 500. User code is never executed.
+- **Debug mode:** `FLASK_DEBUG=1` enables the Flask debugger, which allows
+  code execution from the browser. That is why the app listens only on
+  `127.0.0.1` by default and debug is off. Do not expose it on a network.
+- **Injection:** the frontend paints everything with `textContent`, never with
+  `innerHTML`, so user code cannot inject HTML.
+- **Data:** there is no database, no sessions and no authentication. There is
+  nothing to leak or lose.

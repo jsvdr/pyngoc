@@ -14,7 +14,7 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r requirements.txt -r requirements-dev.txt
-      - run: ruff check backend/ tests/
-      - run: ruff format --check backend/ tests/
+      - run: ruff check src/ tests/
+      - run: ruff format --check src/ tests/
       - run: pyright
       - run: pytest tests/ -q

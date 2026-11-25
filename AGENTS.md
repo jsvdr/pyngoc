@@ -1,67 +1,71 @@
 # AGENTS.md — Pyngo
 
-Compilador didáctico por fases. Código para tontos: simple de leer
-y explicar, aunque parezca menos "profesional". La simplicidad manda
-sobre DRY y sobre ceremonia.
+A didactic, phase-by-phase compiler. The code is written for people to read
+and explain, even if that is less "professional": simplicity beats DRY and
+ceremony.
 
-## Stack y comandos
+## Stack and commands
 
-- Backend: Python 3.12 + Flask (`pip install -r requirements.txt`).
-- Servidor: `python backend/app.py` → `http://127.0.0.1:5000`.
-- Lint/formato: `ruff check backend/ tests/` y `ruff format --check backend/ tests/`.
-- Tipos: `pyright` en modo `strict` (config en `pyrightconfig.json`).
-- Tests: `pytest tests/ -q` (deben pasar siempre; el humo está en `tests/test_smoke.py`).
-- Frontend: HTML/CSS/JS vanilla servido por Flask. Puertos: Flask `:5000`.
+- Backend: Python 3.12 + Flask (`uv sync`).
+- Server: `uv run pyngo serve` → `http://127.0.0.1:5000`.
+- Lint/format: `uv run ruff check .` and `uv run ruff format --check .`.
+- Types: `uv run pyright` in `strict` mode (config in `pyrightconfig.json`).
+- Tests: `uv run pytest -q` (must always pass; smoke tests live in
+  `tests/test_compiler.py`).
+- CLI: `uv run pyngo build examples/loop.pyn`.
+- Frontend: vanilla HTML/CSS/JS served by Flask. Flask runs on `:5000`.
 
-## Convenciones (no negociables sin preguntar)
+## Conventions (do not change without asking)
 
-- Identificadores de dominio en español (`tabla`, `linea`, `decl_var`).
-  `Token(kind, lexeme, line)`, Flask y JS quedan en inglés: es vocabulario
-  técnico, no se renombra.
-- Sin AST: el parser solo reconoce (sin `return Nodo...`, sin `arbol.py`).
-  El semántico copia la forma del parser y devuelve tipos (`"int"`/`"bool"`,
-  `None` = desconocido por error previo).
-- Duplicación `decl_var`/`asignacion` intencional: cada método se lee solo
-  y calca su producción. No extraer helpers sin pedirlo.
-- Mensajes fijos: `Syntax OK`, `Semantic OK`,
-  `Línea X: ERROR DE TIPOS: ...`, `Línea X: ERROR DE DECLARACIÓN: ...`.
-  Los tests los comparan exactos.
-- Gramática con `@ # & |` (exigidos por el profesor) y `{}`, `;`.
-  No cambiar operadores ni producciones sin confirmación explícita.
-- `tabla[nombre] = tipo` se guarda incluso con error de tipos;
-  `return` temprano solo ante redeclaración. `linea` se captura ANTES
-  de consumir la expresión. No "optimizar" esto: evita errores en cascada.
-- GUI: base 1920×1080 escalada con `zoom`; arriba PROGRAMA/TOKENS (528px
-  cada uno) y PARSER/SEMÁNTICO (784px); abajo CI y CO al 50% cada uno
-  (928px), con DATOS arriba y CÓDIGO abajo.
-  Cada fase limpia sus salidas sola (no existe botón Limpiar). Éxito en
-  verde `#065F46`, error en rojo `#991B1B`, fuentes modo proyector
-  (texto/UI 22px, tablas 20px).
+- Everything in the repository is in English: identifiers, comments, error
+  messages, UI, docs and commits. The language keywords are already English
+  (`if`, `while`, `print`, `int`, `bool`, `true`, `false`).
+- No AST: the parser only recognizes (no `return Node`, no `tree.py`). The
+  semantic analyzer copies the parser's shape and returns types
+  (`"int"`/`"bool"`, `None` = unknown because of an earlier error).
+- The duplication between `var_decl` and `assignment` is intentional: each
+  method reads on its own and mirrors its production. Do not extract helpers
+  without being asked.
+- Fixed messages: `Syntax OK`, `Semantic OK`,
+  `Line X: TYPE ERROR: ...`, `Line X: DECLARATION ERROR: ...`,
+  `Line X: OBJECT CODE ERROR: ...`. Tests compare them exactly.
+- Grammar with `@ # & |` and `{}`, `;`. Do not change operators or
+  productions without explicit confirmation.
+- `symbol_table[name] = data_type` is stored even after a type error; the
+  early return only happens on redeclaration. `line` is captured BEFORE
+  consuming the expression. Do not "optimize" this: it avoids cascading
+  errors.
+- GUI: fixed 1920×1080 base scaled with `zoom`; PROGRAMS/TOKENS on top
+  (528px each) and PARSER/SEMANTIC (784px); below, IR and OBJECT CODE at 50%
+  each (928px), with DATA above and CODE below.
+  Each phase clears only its own output (there is no Clear button). Success in
+  green `#065F46`, error in red `#991B1B`, projector fonts (text/UI 22px,
+  tables 20px).
 
-## Guardarraíles
+## Guardrails
 
-- `.github/workflows/` sí se puede pushear: el token tiene alcance `workflow`.
-  Si algún día falla por eso, ese cambio va por la web de GitHub + `git pull`.
-- No agregar dependencias, frameworks, type hints globales, docstrings
-  obligatorias ni empaquetado `src/` sin pedirlo antes.
-- Commits en español, estilo `feat:`/`fix:`/`ci:`.
+- `.github/workflows/` can be pushed: the token has `workflow` scope. If that
+  ever fails, make that change through the GitHub web UI + `git pull`.
+- Do not add dependencies, frameworks, global type hints, mandatory
+  docstrings or a `src/` layout change without asking first.
+- Commits in English, `feat:`/`fix:`/`ci:`/`docs:`/`refactor:`/`build:` style.
 
-## Verificación y entrega
+## Verification and delivery
 
-- No digas que algo funciona ni que las pruebas pasan si no ejecutaste el
-  comando. Muestra el comando y su salida real.
-- Si algo no se puede verificar, dilo explícito. "Debería andar" no es "anda".
-- No debilites ni borres pruebas, ni silencies errores, para que pase el CI.
-- No uses `push --force` ni `reset --hard` sin autorización.
-- El código tiene que quedar explicable en el examen: ante dos soluciones,
-  elegí la que se pueda defender en voz alta.
-- Al terminar, reportá: qué cambió, qué archivos, qué comandos corriste,
-  qué pasó y qué queda pendiente.
+- Do not say something works or that tests pass unless you ran the command.
+  Show the command and its real output.
+- If something cannot be verified, say so explicitly. "It should work" is not
+  "it works".
+- Do not weaken or delete tests, and do not silence errors, just to make CI
+  pass.
+- Do not use `push --force` or `reset --hard` without authorization.
+- The code must be explainable in an exam: when there are two solutions,
+  choose the one that can be defended out loud.
+- When done, report: what changed, which files, which commands you ran, what
+  happened and what is still pending.
 
-## Material local (no versionado)
+## Local material (not versioned)
 
-Si existe `plantillas-pyngo/`, es material de trabajo local: plantillas del
-profesor (`plantillas.md`, `ejemplos/`) y notas propias (`sesion.md`). Leer
-`plantillas.md` antes de tocar `backend/intermedio.py`. Esa carpeta está
-ignorada vía `.git/info/exclude`: no se sube nunca, no agregarla a git ni
-citar su contenido en el repo.
+If `plantillas-pyngo/` exists, it is local working material. It is ignored
+through `.git/info/exclude`: never add it to git, never upload it and never
+quote its contents in the repository.

@@ -19,14 +19,22 @@ dist/
 build/
 *.egg-info/
 
-# OS / editores
+# OS / editors
 .DS_Store
 Thumbs.db
 .vscode/
 .idea/
 
-# Entorno (nunca subir claves)
+# Environment (never commit keys)
 .env
 
-# Notas locales (no van al repo)
+# Local notes (not part of the repository)
 KISS-sugerencias.md
+ENTENDER-CI-CO.md
+backend.txt
+backend-modificaciones.txt
+commits-v1.1.sh
+frontend.txt
+verificacion-v1.2.txt
+verificacion-v1.3.txt
+plantillas-pyngo/

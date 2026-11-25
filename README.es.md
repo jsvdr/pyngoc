@@ -12,19 +12,22 @@ La gramática está en [`docs/grammar.md`](docs/grammar.md).
 ## Correrlo
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-PYTHONPATH=src python -m pyngo.app
+uv sync
+uv run pyngo serve
 ```
 
 Abrí `http://127.0.0.1:5000`.
 
+Compilar un archivo:
+
+```bash
+uv run pyngo build examples/loop.pyn
+```
+
 ## Pruebas
 
 ```bash
-pip install -r requirements-dev.txt
-pytest tests/ -q
-ruff check src/ tests/
-pyright
+uv run pytest -q
+uv run ruff check .
+uv run pyright
 ```

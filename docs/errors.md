@@ -47,7 +47,7 @@ type(op, left, right):
 ## Correct line
 
 ```python
-line = current().line   # BEFORE consuming the expression
+line = current().line  # BEFORE consuming the expression
 ```
 
 If it were reported after `expression()`, it would point at the `;`.

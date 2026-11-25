@@ -45,14 +45,18 @@ one does not run.
 ## Run it (Python 3.12)
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-PYTHONPATH=src python -m pyngo.app
+uv sync
+uv run pyngo serve
 ```
 
-Open `http://127.0.0.1:5000`. Development reload: `FLASK_DEBUG=1`.
-If the port is busy: `PORT=5001 PYTHONPATH=src python -m pyngo.app`.
+Open `http://127.0.0.1:5000`. Development reload: `uv run pyngo serve --debug`.
+If the port is busy: `uv run pyngo serve --port 5001`.
+
+Compile a file from the terminal:
+
+```bash
+uv run pyngo build examples/loop.pyn
+```
 
 ## With Docker (no Python install)
 
@@ -64,11 +68,11 @@ docker run -p 5000:5000 pyngo
 ## How to review it (if something fails, run this first)
 
 ```bash
-pip install -r requirements-dev.txt
-pytest tests/ -q
-ruff check src/ tests/
-ruff format --check src/ tests/
-pyright
+uv sync
+uv run pytest -q
+uv run ruff check .
+uv run ruff format --check .
+uv run pyright
 ```
 
 `pyright` runs in `strict` mode with [`pyrightconfig.json`](pyrightconfig.json)
@@ -170,8 +174,8 @@ The bytes are verified against the tables with unit tests.
 - **Messages are fixed** (`Syntax OK`, `Semantic OK`,
   `Line X: TYPE ERROR: ...`): tests compare them exactly, so they are not
   reworded.
-- **No runtime dependencies** beyond Flask: `ruff`, `pyright` and `pytest`
-  are development tools (`requirements-dev.txt`).
+- **No runtime dependencies** beyond Flask and gunicorn: `ruff`, `pyright`,
+  `pytest` and `pre-commit` are development tools (`[dependency-groups]`).
 - **Strict typing, no `Any` and no `type: ignore`.** `pyright` runs in
   `strict` mode with extra warnings (implicit override, unused call results).
   Domain types live in short aliases: `Operand` (encoder), `Row` and
@@ -191,10 +195,11 @@ The bytes are verified against the tables with unit tests.
 
 ```text
 src/pyngo/  tokens.py cursor.py lexer.py parser.py semantic.py
-            ir.py encoder.py codegen.py app.py
+            ir.py encoder.py codegen.py app.py cli.py
 web/        index.html script.js style.css
 tests/      test_compiler.py test_encoder.py test_codegen.py
 docs/       grammar.md errors.md
+examples/   loop.pyn
 ```
 
 ## How AI was used

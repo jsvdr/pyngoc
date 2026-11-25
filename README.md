@@ -1,212 +1,185 @@
-# Pyngo — a small multi-phase compiler
+# Pyngo
+
+**A small compiler, one phase at a time.** Lexer → parser → semantic analysis
+→ intermediate code → 16-bit x86 object code, with a projector-friendly web UI
+that shows every phase next to the next one.
 
 [![CI](https://github.com/jsvdr/pyngoc/actions/workflows/ci.yml/badge.svg)](https://github.com/jsvdr/pyngoc/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/python-3.12%20%7C%203.13%20%7C%203.14-blue)](pyproject.toml)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-A phase-by-phase compiler (lexer → parser → semantic → intermediate code →
-16-bit x86 object code) for a small language with `int`/`bool`,
-`if`/`while`/`print` and the operators `@ # & | == > <`. The backend is
-Flask, the frontend is vanilla HTML/CSS/JS, and there are no extra runtime
-dependencies. The code is simple on purpose: it reads top to bottom, with no
-AST.
+![Pyngo compiling examples/loop.pyn](docs/demo.gif)
 
-The language grammar lives in [`docs/grammar.md`](docs/grammar.md) and the
-error catalogue in [`docs/errors.md`](docs/errors.md).
+The language has `int` and `bool`, `if` / `while` / `print`, and four
+arithmetic operators (`@` add, `#` subtract, `&` multiply, `|` divide) plus
+`==`, `>` and `<`. The object-code panel shows the real bytes of every
+instruction, with its address, its binary content and its hex.
 
-## Architecture
-
-```mermaid
-flowchart LR
-    S["Source"] --> L["lexer.py<br/>tokens"]
-    L --> P["parser.py<br/>syntax"]
-    P --> M["semantic.py<br/>types + symbol table"]
-    M --> I["ir.py<br/>3-column text"]
-    M --> C["codegen.py<br/>x86 16-bit"]
-    C --> E["encoder.py<br/>bytes + ModR/M"]
-    I --> G["GUI<br/>phase panel"]
-    E --> G
-```
-
-The phases are chained: each one receives what the previous one left and they
-do not share state. Each GUI button (`/tokens`, `/parser`, `/semantic`, `/ir`,
-`/object`) re-runs the previous phases from the source; if one fails, the next
-one does not run.
-
-## Status
-
-| Phase | Status |
-|---|---|
-| Lexer | ✅ |
-| Parser (no AST) | ✅ |
-| Semantic | ✅ |
-| Intermediate code | ✅ |
-| Optimizer | ⏳ to be defined |
-| Object code (x86 16-bit) | ✅ (bytes verified with tests) |
-
-## Run it (Python 3.12)
+## Quick start
 
 ```bash
+git clone https://github.com/jsvdr/pyngoc.git
+cd pyngoc
 uv sync
-uv run pyngo serve
+uv run pyngo serve          # → http://127.0.0.1:5000
 ```
 
-Open `http://127.0.0.1:5000`. Development reload: `uv run pyngo serve --debug`.
-If the port is busy: `uv run pyngo serve --port 5001`.
+`uv` installs Python 3.12 from `.python-version` if you do not have it.
 
 Compile a file from the terminal:
 
 ```bash
-uv run pyngo build examples/loop.pyn
+$ uv run pyngo build examples/loop.pyn
+Syntax OK
+Semantic OK
+IR
+NAME        OPERATOR  ATTRIBUTE
+            TITLE     Pyngo
+...
+WHILE_START_1:
+            MOV       AX, i
+            CMP       AX, 3
+            JAE       WHILE_END_2
+...
+OBJECT CODE
+DATA
+ADDRESS             HEX     TEXT
+0000 0000 0000 0000 00 00   i : int
+...
+CODE
+ADDRESS             HEX                 TEXT
+0000 0000 0000 0000 B8 00 00            MOV AX, 0
+0000 0000 0000 0011 A3 00 00            MOV [0000h], AX
+...
 ```
 
-## With Docker (no Python install)
+| Command | What it does |
+|---|---|
+| `uv run pyngo serve [--port 5001] [--debug]` | web UI (Flask development server) |
+| `uv run pyngo build <file>` | phases, IR table and object code |
+| `uv run pyngo check <file>` | lexer, parser and semantic analysis only |
+| `uv run pyngo --version` | version |
 
-```bash
-docker build -t pyngo .
-docker run -p 5000:5000 pyngo
-```
+## The pipeline
 
-## How to review it (if something fails, run this first)
-
-```bash
-uv sync
-uv run pytest -q
-uv run ruff check .
-uv run ruff format --check .
-uv run pyright
-```
-
-`pyright` runs in `strict` mode with [`pyrightconfig.json`](pyrightconfig.json)
-and analyzes only `src/` and `tests/`. In VSCode, open this folder
-(`compiler/`) and select the `.venv/bin/python` interpreter: if the workspace is
-a parent folder, Pylance does not find the config and reports the `pyngo`
-imports as errors.
-
-## Phases (one button per phase in the GUI)
-
-| Button | Route | OK output |
+| Phase | Module | Output |
 |---|---|---|
-| TOKENS | `POST /tokens` | token list |
-| Parser | `POST /parser` | `Syntax OK` |
-| Semantic | `POST /semantic` | `Semantic OK` |
-| IR | `POST /ir` | Name/Operator/Attribute table |
-| OBJECT CODE | `POST /object` | DATA and CODE tables (ADDRESS/CONTENT/HEX) |
+| Tokens | `src/pyngo/lexer.py` | `<TKN INT int>`, `<TKN ID counter>`, … |
+| Syntax | `src/pyngo/parser.py` | `Syntax OK` or `Line X: …` |
+| Semantics | `src/pyngo/semantic.py` | `Semantic OK` + symbol table |
+| Intermediate code | `src/pyngo/ir.py` | `NAME / OPERATOR / ATTRIBUTE` rows |
+| Object code | `src/pyngo/codegen.py` + `encoder.py` | `ADDRESS / CONTENT / HEX` rows |
 
-## Intermediate code (IR)
+Each GUI button (`TOKENS`, `Parser`, `Semantic`, `IR`, `OBJECT CODE`) re-runs
+the phases from the source and stops at the first one that fails. Success is
+green, errors are red, and nothing is shared between panels.
 
-The IR is painted as a **Name / Operator / Attribute** table. The generator
-builds text lines (`MOV AX, a`) and splits them into those 3 columns.
-
-Simple version: every expression is computed in `AX` and only **simple
-operands** are allowed (variable, number or `true`/`false`), but operations at
-the same level can be chained:
-
-- `a @ b @ c` → `ADD AX, b` / `ADD AX, c`
-- `a & b | c` → `MUL BX` / `DIV BX`
-- `while (a < b) { ... }` → label at the start, `CMP` + jump, `JMP` back
-- `bool` values are `DB`: loaded with `MOV AL` + `MOV AH, 0` and compared with `CMP AL`
-- `print(x)` splits the value into `TENS` and `ONES` and prints them with
-  `INT 21H` / `AH=02H`; the two-digit routine is correct for 0–99. `print`
-  only accepts a variable, and values above 99 are not checked at compile time
-
-If the stack were needed (for example `a @ b & c` or `( a @ b )`), the IR
-button shows a clear error instead of generating code.
+The grammar fits on one screen: [`docs/grammar.md`](docs/grammar.md).
+The error strategy is explained in [`docs/errors.md`](docs/errors.md).
 
 ## Object code
 
-The floating **OBJECT CODE** button opens a panel with two tables: **DATA**
-(the variables) and **CODE** (the instructions). Each row shows
-`ADDRESS | CONTENT | HEX`:
-
-- `ADDRESS` is binary (16 bits in four nibbles): `0000 0000 0000 0000`.
-- `CONTENT` comes from the real bytes, in nibbles: `1010 0001  0000 0010  0000 0000`.
-- `HEX` is the same bytes in memory order: `A1 02 00`.
-- Each row's tooltip shows the full instruction (`MOV AX,[0002h]`).
-
-Conventions: `DATA_BASE = 0000h` (2 bytes per variable, `00 00`),
-`CODE_BASE = 0000h`, W = 1, little endian, two's complement. Variables are
-addressed directly (mod 00, r/m 110). The code ends in `HLT`; if the program
-has `print`, the `print_routine` follows. It prints with `DIV DL` +
-`INT 21H` / `AH=02H`, just like the IR, and adds `TENS` and `ONES` (1 byte
-each) to the DATA table. Without `print`, the routine is not emitted.
-
-`encoder.py` keeps the variants in tables (MOV, ADD/SUB/CMP, MUL/DIV, jumps
-and stack) and builds the ModR/M byte. `codegen.py` walks the tokens in the
-same shape as the parser and emits instructions. Jumps are assembled in two
-passes: if the relative offset does not fit in −128..127, they are promoted to
-near jumps (`E9` or `0F 8x`).
-
-The four phases share `cursor.py`: a base class with `current_token()`,
-`current_is()`, `advance()` and `advance_if()`, so the token-list and position
-handling is not repeated in every file.
-
-Comparisons use **unsigned** jumps (`>` → `JA`, `<` → `JB`): the language
-handles 0..65535 and `MUL`/`DIV` are unsigned, so `40000 > 5` cannot be read
-as a negative. `==` is still `JE`.
-
-Example (`x` at 0000h, `y` at 0002h):
+`DATA` holds the variables (`int` = 2 bytes, `bool` = 1) and `CODE` holds the
+instructions. For `x` at `0000h` and `y` at `0002h`:
 
 ```text
 x = y & 3;   → A1 02 00 · BB 03 00 · F7 E3 · A3 00 00
 x = y | 3;   → A1 02 00 · BB 03 00 · BA 00 00 · F7 F3 · A3 00 00
 ```
 
-The bytes are verified against the tables with unit tests.
+Every expression is computed in `AX`; `MUL` and `DIV` use `BX`, and `DX` is
+cleared before a 16-bit division. Comparisons leave `0`/`1` in `AX` and use
+the **unsigned** jumps (`JA`, `JB`), because `int` is `0..65535`. `print`
+divides by 10 and writes the two digits with `INT 21H` / `AH=02H` through a
+`print_routine` that reads its argument with `MOV BP, SP` / `MOV AX, [BP+2]`.
 
-## Technical decisions
+Jumps are always near, and they are assembled in two passes: the first one
+computes the address of every label, the second one encodes the relative
+offset. `encoder.py` owns the tables (ModR/M composition included) and raises
+`EncoderError` for anything outside the emitted subset.
 
-- **No AST.** The parser only validates; the semantic analyzer and the
-  generator copy its shape (same skeleton, same order). The price is walking
-  the tokens again during generation; in exchange, there is no tree to
-  maintain for a single consumer. If the optimizer needs one, we reopen the
-  decision.
-- **Registers, not a stack.** Everything is computed in `AX` (a single
-  accumulator). That is why only simple operands and same-level operations
-  are allowed: if an expression needed two live values at once, an error
-  (`IRError`) is shown instead of generating wrong code.
-- **`bool` values are `DB`** (1 byte, language rule): loaded with `MOV AL` +
-  `MOV AH, 0` and compared with `CMP AL`, so `AX` always holds a full 0 or 1.
-- **Comparisons are a value.** `== > <` leave 0/1 in `AX` with `SETcc` +
-  `MOV AH, 0` (that is why `bool c = a == b` exists); in a condition the
-  negated jump is emitted (`<` → `JGE`).
-- **`print` uses the two-digit template**: `DIV DL` splits the number (tens
-  in `TENS`, ones in `ONES`). It is correct from 0 to 99; values above that
-  are a documented limitation.
-- **Messages are fixed** (`Syntax OK`, `Semantic OK`,
-  `Line X: TYPE ERROR: ...`): tests compare them exactly, so they are not
-  reworded.
-- **No runtime dependencies** beyond Flask and gunicorn: `ruff`, `pyright`,
-  `pytest` and `pre-commit` are development tools (`[dependency-groups]`).
-- **Strict typing, no `Any` and no `type: ignore`.** `pyright` runs in
-  `strict` mode with extra warnings (implicit override, unused call results).
-  Domain types live in short aliases: `Operand` (encoder), `Row` and
-  `PanelRow` (codegen).
+## Tests
 
-## Example to try
-
-```text
-{
-    int counter = 1;
-    bool active = true;
-    counter = counter @ 1;
-}
+```bash
+uv run pytest        # 414 tests
 ```
 
-## Structure
+- `tests/test_compiler.py` — the contract of the front end, with exact
+  messages.
+- `tests/test_encoder.py` — every encoding, in hex and in nibbles.
+- `tests/test_codegen.py` — addresses, bytes, jumps and the two examples above.
+- `tests/test_differential.py` — 300 programs from a fixed seed are compiled,
+  executed in a small x86-16 emulator and compared with an independent
+  reference interpreter: printed text **and** final variable values. The
+  emulator keeps data and stack in separate segments, like real mode.
+
+```bash
+uv run ruff check .
+uv run ruff format --check .
+uv run pyright        # strict
+uv run pre-commit run --all-files
+```
+
+## Documentation
+
+| Document | Contents |
+|---|---|
+| [`docs/grammar.md`](docs/grammar.md) | the grammar, one line per production |
+| [`docs/errors.md`](docs/errors.md) | how each error is detected, as pseudocode |
+| [`docs/architecture.md`](docs/architecture.md) | modules, data crossing each boundary, Mermaid diagram |
+| [`docs/limitations.md`](docs/limitations.md) | everything the compiler does not do |
+| [`docs/adr/`](docs/adr) | five architecture decision records |
+| [`CHANGELOG.md`](CHANGELOG.md) | versions |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | setup, style, commit prefixes |
+
+A Spanish summary of the project is in [`README.es.md`](README.es.md).
+
+## Run it with Docker or deploy it
+
+```bash
+docker build -t pyngo .
+docker run -p 5000:5000 pyngo
+```
+
+The image is two stages: `ghcr.io/astral-sh/uv` resolves and installs the
+dependencies, then a slim `python:3.12-slim` runs `gunicorn` on `$PORT`
+(5000 by default) and answers `/healthz` with `{"status": "ok"}`.
+
+[`render.yaml`](render.yaml) deploys the same image as a Render web service
+with a health check. The free plan sleeps after inactivity, so the first
+request after a while takes **30–50 s**; after that it answers in
+milliseconds.
+
+## Project layout
 
 ```text
-src/pyngo/  tokens.py cursor.py lexer.py parser.py semantic.py
-            ir.py encoder.py codegen.py app.py cli.py
-web/        index.html script.js style.css
-tests/      test_compiler.py test_encoder.py test_codegen.py
-docs/       grammar.md errors.md
-examples/   loop.pyn
+src/pyngo/   tokens.py cursor.py lexer.py parser.py semantic.py
+             ir.py encoder.py codegen.py app.py cli.py
+web/         index.html script.js style.css
+tests/       test_compiler.py test_encoder.py test_codegen.py
+             test_differential.py differential/{emulator,generator,reference}.py
+docs/        grammar.md errors.md architecture.md limitations.md adr/ demo.gif
+examples/    loop.pyn
 ```
 
 ## How AI was used
 
-AI assistants helped draft code, comments, tests and documentation. Every
-generated byte is checked against the Intel instruction tables with unit
-tests, and the object-code path is exercised by a seeded differential test
-that runs random programs in a small x86-16 emulator and compares the output
-with a reference interpreter. Suggestions that did not survive those checks
-were discarded. The commit history keeps the fixes.
+AI assistants helped draft code, comments, tests and documentation, and the
+pull requests were reviewed by a human. Nothing here is trusted because a
+model produced it:
+
+- every encoding is checked against the instruction tables by a unit test
+  (`tests/test_encoder.py`, hex and nibbles);
+- the object code is checked by a differential test that runs 300 seeded
+  random programs in an emulator and compares the result with an independent
+  reference interpreter (`tests/test_differential.py`);
+- `ruff`, `ruff format`, `pyright --strict` and `pytest` run in CI on Python
+  3.12, 3.13 and 3.14.
+
+Suggestions that did not survive those checks were discarded; the commit
+history keeps the fixes.
+
+## License
+
+MIT — see [`LICENSE`](LICENSE).

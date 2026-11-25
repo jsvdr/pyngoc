@@ -15,6 +15,16 @@ ceremony.
 - CLI: `uv run pyngo build examples/loop.pyn`.
 - Frontend: vanilla HTML/CSS/JS served by Flask. Flask runs on `:5000`.
 
+## Tests are part of the contract
+
+- `tests/test_compiler.py` pins the exact messages of the front end.
+- `tests/test_encoder.py` pins every encoding, in hex and in nibbles.
+- `tests/test_codegen.py` pins addresses, bytes and the two examples.
+- `tests/test_differential.py` compiles 300 seeded random programs, runs the
+  bytes in `tests/differential/emulator.py` and compares them with
+  `tests/differential/reference.py` (output and final variables).
+  The emulator is a test tool for the emitted subset, not a general one.
+
 ## Conventions (do not change without asking)
 
 - Everything in the repository is in English: identifiers, comments, error

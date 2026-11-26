@@ -39,3 +39,30 @@ jobs:
 
       - name: Tests
         run: uv run pytest
+
+  go:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tools/pyngo-run
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: tools/pyngo-run/go.mod
+
+      - name: Format
+        run: test -z "$(gofmt -l .)"
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Tests
+        run: go test ./...
+
+      - name: Build and run the golden example
+        run: |
+          go build -o pyngo-run .
+          test "$(./pyngo-run testdata/loop.json)" = "03"

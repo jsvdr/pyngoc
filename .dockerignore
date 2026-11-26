@@ -9,6 +9,11 @@ __pycache__/
 .vscode/
 .idea/
 plantillas-pyngo/
+dist/
+build/
+tests/
+docs/
+examples/
 *.txt
 *.md
 !README.md

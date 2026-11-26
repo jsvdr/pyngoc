@@ -282,7 +282,11 @@ class SemanticAnalyzer(TokenCursor):
 
         # NUM
         if self.current_is(TokenKind.NUM):
-            if int(self.current_token().lexeme) > 0xFFFF:
+            # Strip leading zeros and look at the length first: int() refuses
+            # strings over 4300 digits, and a 5000-digit literal must be a type
+            # error, not a crash.
+            digits = self.current_token().lexeme.lstrip("0") or "0"
+            if len(digits) > 5 or int(digits) > 0xFFFF:
                 self.type_error(
                     self.current_token().line,
                     "The number does not fit in 16 bits (0..65535).",

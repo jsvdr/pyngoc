@@ -59,6 +59,29 @@ def test_already_declared_variable() -> None:
     assert error_list == ["Line 1: DECLARATION ERROR: Variable 'x' has already been declared."]
 
 
+def test_number_that_does_not_fit_in_16_bits() -> None:
+    is_valid, error_list, _ = compile_to_semantic("{ int x = 70000; }")
+
+    assert not is_valid
+    assert error_list == ["Line 1: TYPE ERROR: The number does not fit in 16 bits (0..65535)."]
+
+
+def test_a_very_long_number_is_an_error_not_a_crash() -> None:
+    # int() refuses strings over 4300 digits; the length check must come first.
+    is_valid, error_list, _ = compile_to_semantic("{ int x = " + "9" * 5000 + "; }")
+
+    assert not is_valid
+    assert error_list == ["Line 1: TYPE ERROR: The number does not fit in 16 bits (0..65535)."]
+
+
+def test_leading_zeros_are_still_a_small_number() -> None:
+    is_valid, error_list, symbol_table = compile_to_semantic("{ int x = 0000000000000001; }")
+
+    assert is_valid
+    assert error_list == ["Semantic OK"]
+    assert symbol_table == {"x": "int"}
+
+
 def test_ir_table_has_3_fields() -> None:
     source = "{ int counter = 1; bool active = true; }"
 

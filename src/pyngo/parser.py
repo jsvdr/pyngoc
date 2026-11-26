@@ -12,7 +12,16 @@ class Parser(TokenCursor):
         self.errors = []
 
     def analyze(self) -> tuple[bool, list[str]]:
-        self.program()
+        try:
+            self.program()
+        except RecursionError:
+            # 200-odd nested parentheses or blocks reach Python's own limit.
+            # That is bad input, not a server failure: report it like any other
+            # syntax error instead of letting the exception escape.
+            line_number = self.current_token().line
+            self.errors.append(f"Line {line_number}: The program is nested too deeply.")
+
+            return False, self.errors
 
         if not self.current_is(TokenKind.EOF):
             self.note_error("Expected end of program.")

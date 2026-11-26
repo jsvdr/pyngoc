@@ -6,6 +6,7 @@ from typing import cast
 # App: wires lexer -> parser -> semantic -> IR and serves the GUI.
 # Anything from outside is untrusted: check it with isinstance or return 400.
 from flask import Flask, Response, jsonify, request
+from werkzeug.exceptions import RequestEntityTooLarge
 
 from .codegen import generate_object_code
 from .ir import IRError, generate_ir
@@ -26,6 +27,49 @@ app = Flask(__name__, static_folder=str(web_dir), static_url_path="")
 app.config["MAX_CONTENT_LENGTH"] = 64 * 1024
 
 MISSING_CODE = "No code was provided for analysis."
+TOO_DEEP = "The program is nested too deeply to analyze."
+TOO_LARGE = "The request body is larger than 64 KB."
+
+# The page loads one script and one stylesheet from this origin and talks to
+# itself with fetch(): nothing else has to be allowed. 'none' by default means
+# an injected <script>, <iframe> or remote image simply does not run.
+SECURITY_HEADERS = {
+    "Content-Security-Policy": (
+        "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
+        "connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+    ),
+    "Cross-Origin-Opener-Policy": "same-origin",
+    "Permissions-Policy": "camera=(), geolocation=(), microphone=()",
+    "Referrer-Policy": "no-referrer",
+    "Strict-Transport-Security": "max-age=31536000",
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+}
+
+
+@app.after_request
+def add_security_headers(response: Response) -> Response:
+    for name, value in SECURITY_HEADERS.items():
+        response.headers[name] = value
+
+    # Analysis answers are about one pasted program: do not keep them in a cache.
+    if request.path != "/" and not request.path.endswith((".css", ".js")):
+        response.headers["Cache-Control"] = "no-store"
+
+    return response
+
+
+# A deeply nested expression can exhaust Python's recursion limit. That is bad
+# input, not a server failure: answer 400 like any other syntax problem.
+@app.errorhandler(RecursionError)
+def too_deep(_error: RecursionError) -> tuple[Response, int]:
+    return jsonify({"ok": False, "errors": [TOO_DEEP]}), 400
+
+
+# MAX_CONTENT_LENGTH raises this before the view runs; keep the JSON shape.
+@app.errorhandler(RequestEntityTooLarge)
+def too_large(_error: RequestEntityTooLarge) -> tuple[Response, int]:
+    return jsonify({"ok": False, "errors": [TOO_LARGE]}), 413
 
 
 @app.route("/")

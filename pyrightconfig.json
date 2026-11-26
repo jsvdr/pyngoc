@@ -1,6 +1,7 @@
 {
   "typeCheckingMode": "strict",
   "include": ["src", "tests"],
+  "exclude": ["tests/fuzz"],
   "extraPaths": ["src"],
   "pythonVersion": "3.12",
   "reportImplicitOverride": "error",

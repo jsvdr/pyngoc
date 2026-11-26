@@ -1,0 +1,52 @@
+name: Fuzz
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "0 6 * * 1" # a longer run once a week
+
+permissions:
+  contents: read
+
+jobs:
+  atheris:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    env:
+      # Two minutes per push or pull request; ten on the weekly schedule.
+      FUZZ_SECONDS: ${{ github.event_name == 'schedule' && 600 || 120 }}
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --locked --group fuzz
+
+      # Any exception is a crash: the compiler must answer with an error, not
+      # with a traceback. The corpus starts from programs the language accepts.
+      - name: Fuzz every phase
+        run: |
+          uv run --group fuzz python tests/fuzz/fuzz_compiler.py \
+            -max_total_time="${FUZZ_SECONDS}" \
+            -dict=tests/fuzz/pyngo.dict \
+            -print_final_stats=1 \
+            tests/fuzz/corpus
+
+      - name: Keep the crashing input
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: fuzz-crash
+          path: |
+            crash-*
+            tests/fuzz/corpus/crash-*
+          if-no-files-found: ignore

@@ -42,6 +42,10 @@ dev = [
   "pytest>=9.1",
   "ruff>=0.17",
 ]
+# Only installed with `uv sync --group fuzz`: atheris ships Linux x86-64 wheels.
+fuzz = [
+  "atheris>=3.1",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/pyngo"]

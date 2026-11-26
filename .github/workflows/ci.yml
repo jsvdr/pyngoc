@@ -59,6 +59,9 @@ jobs:
       - name: Vet
         run: go vet ./...
 
+      - name: Security scan (gosec)
+        run: go run github.com/securego/gosec/v2/cmd/gosec@latest ./...
+
       - name: Tests
         run: go test ./...
 

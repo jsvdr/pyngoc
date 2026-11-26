@@ -53,6 +53,21 @@ jobs:
           load: true
           tags: pyngo:scan
 
+      - name: Smoke test (read-only container)
+        run: |
+          docker run -d --name pyngo-smoke \
+            --read-only --tmpfs /tmp --cap-drop ALL \
+            -p 127.0.0.1:5099:5000 pyngo:scan
+          trap 'docker rm -f pyngo-smoke >/dev/null 2>&1 || true' EXIT
+          for _ in $(seq 1 15); do
+            if curl -sf http://127.0.0.1:5099/healthz | grep -q '"ok"'; then
+              break
+            fi
+            sleep 1
+          done
+          curl -fsSI http://127.0.0.1:5099/healthz | grep -qi "X-Frame-Options: DENY"
+          curl -fsSI http://127.0.0.1:5099/healthz | grep -qi "Content-Security-Policy:"
+
       # OS packages and Python wheels, as they land in the final layer.
       - name: Scan the image
         uses: aquasecurity/trivy-action@v0.36.0
@@ -63,3 +78,16 @@ jobs:
           ignore-unfixed: true
           severity: HIGH,CRITICAL
           vuln-type: os,library
+
+      - name: Generate SBOM
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: pyngo:scan
+          format: cyclonedx
+          output: sbom.cdx.json
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: pyngo-sbom
+          path: sbom.cdx.json

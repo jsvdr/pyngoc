@@ -26,9 +26,18 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-COPY --from=builder /app/.venv /app/.venv
+# A fixed unprivileged user: the process never needs to write anything.
+RUN useradd --create-home --uid 10001 pyngo
+
+COPY --from=builder --chown=pyngo:pyngo /app/.venv /app/.venv
+
+USER pyngo
 
 EXPOSE 5000
+
+# The platform also polls /healthz; this makes `docker ps` honest without curl.
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+    CMD python -c 'import os, urllib.request; urllib.request.urlopen("http://127.0.0.1:" + os.environ.get("PORT", "5000") + "/healthz", timeout=2)'
 
 # One worker with threads: the free instances have 512 MB and the workload is
 # a few milliseconds of pure Python per request. Shell form so ${PORT} (set by

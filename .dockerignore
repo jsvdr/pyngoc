@@ -12,6 +12,7 @@ plantillas-pyngo/
 dist/
 build/
 tests/
+tools/
 docs/
 examples/
 *.txt

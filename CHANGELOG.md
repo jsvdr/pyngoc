@@ -4,6 +4,41 @@ All notable changes to this project are documented here. The format loosely
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `pyngo build --json`: one JSON object (`ok`, `data`, `code`, `errors`)
+  instead of the readable report. It is the input format of `pyngo-run`.
+- `tools/pyngo-run`: a Go executor for the emitted object code, with table
+  tests, two golden programs and a CI job. It runs the same bytes the Python
+  emulator runs and is checked against it.
+- Security headers on every response: a restrictive `Content-Security-Policy`,
+  `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`,
+  `Permissions-Policy`, `Cross-Origin-Opener-Policy`, HSTS, and `no-store` on
+  analysis answers.
+- A JSON `413` for bodies over 64 KB and a JSON `400` if a recursion error
+  still escapes a view.
+- `Security` workflow: `pip-audit` on the exported lock, `bandit`, `semgrep`
+  and a Trivy scan of the built image.
+- `Fuzz` workflow: an Atheris target that sends arbitrary text through every
+  phase and into the emulator, seeded with programs the language accepts.
+- `tests/test_app.py` (headers, limits) and `tests/test_cli.py` (JSON form).
+
+### Changed
+
+- The container runs as an unprivileged user (`pyngo`, uid 10001) and has a
+  `HEALTHCHECK`; it can run with `--read-only --tmpfs /tmp`.
+- `uv sync --group fuzz` installs the fuzzer; the default sync does not.
+
+### Fixed
+
+- A number with more than 4300 digits raised `ValueError` inside `int()`
+  (a 500 in the web UI and a traceback in the CLI). It is now the normal
+  `TYPE ERROR: The number does not fit in 16 bits (0..65535).`
+- A program nested deeply enough to exhaust Python's recursion limit now ends
+  as `Line X: The program is nested too deeply.` instead of a traceback.
+
 ## [1.2.0] — 2026-11-24
 
 ### Added

@@ -27,6 +27,48 @@ uv run pytest
 All four must pass. `pre-commit` runs the same tools for you; CI repeats them
 on Python 3.12, 3.13 and 3.14.
 
+The security jobs are cheap to reproduce:
+
+```bash
+uv export --frozen --no-dev --no-emit-project --format requirements-txt -o /tmp/req.txt
+uvx pip-audit -r /tmp/req.txt
+uvx bandit -q -r src/pyngo
+uvx semgrep --config p/python --error src/pyngo
+```
+
+## Fuzzing
+
+```bash
+uv sync --group fuzz
+uv run python tests/fuzz/fuzz_compiler.py -max_total_time=60 tests/fuzz/corpus
+```
+
+Every phase must answer with an error, never with a traceback. If it crashes,
+the input is written as `crash-*`: fix the bug, then copy that file into
+`tests/fuzz/corpus/` so it is tried again on every run.
+
+## The Go executor
+
+`tools/pyngo-run` is its own Go module and has no dependencies outside the
+standard library:
+
+```bash
+cd tools/pyngo-run
+gofmt -l .        # must print nothing
+go vet ./...
+go test ./...
+```
+
+Its golden files are real compiler output; regenerate them when the object
+code changes:
+
+```bash
+uv run pyngo build examples/loop.pyn --json > tools/pyngo-run/testdata/loop.json
+uv run pyngo build tools/pyngo-run/testdata/if.pyn --json > tools/pyngo-run/testdata/if.json
+```
+
+Then update the expected output and step count in `machine_test.go`.
+
 ## Style
 
 - Everything in the repository is in English: identifiers, comments, error

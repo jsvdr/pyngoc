@@ -5,6 +5,8 @@
 that shows every phase next to the next one.
 
 [![CI](https://github.com/jsvdr/pyngoc/actions/workflows/ci.yml/badge.svg)](https://github.com/jsvdr/pyngoc/actions/workflows/ci.yml)
+[![Security](https://github.com/jsvdr/pyngoc/actions/workflows/security.yml/badge.svg)](https://github.com/jsvdr/pyngoc/actions/workflows/security.yml)
+[![Fuzz](https://github.com/jsvdr/pyngoc/actions/workflows/fuzz.yml/badge.svg)](https://github.com/jsvdr/pyngoc/actions/workflows/fuzz.yml)
 [![Python](https://img.shields.io/badge/python-3.12%20%7C%203.13%20%7C%203.14-blue)](pyproject.toml)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
@@ -102,7 +104,7 @@ offset. `encoder.py` owns the tables (ModR/M composition included) and raises
 ## Tests
 
 ```bash
-uv run pytest        # 414 tests
+uv run pytest        # 432 tests
 ```
 
 - `tests/test_compiler.py` — the contract of the front end, with exact
@@ -113,6 +115,8 @@ uv run pytest        # 414 tests
   executed in a small x86-16 emulator and compared with an independent
   reference interpreter: printed text **and** final variable values. The
   emulator keeps data and stack in separate segments, like real mode.
+- `tests/test_app.py` — the headers, the 64 KB limit and the JSON errors.
+- `tests/test_cli.py` — the `--json` form that `pyngo-run` consumes.
 
 ```bash
 uv run ruff check .
@@ -120,6 +124,54 @@ uv run ruff format --check .
 uv run pyright        # strict
 uv run pre-commit run --all-files
 ```
+
+## Security
+
+The web app has a small attack surface and is treated that way:
+
+- **No code execution.** A pasted program is lexed, parsed and compiled; it is
+  never executed by Python. The only executor is the x86 emulator in the
+  tests.
+- **Input limits.** 64 KB per request body (`MAX_CONTENT_LENGTH`) answered
+  with a JSON `413`; deeply nested programs and literals that do not fit in
+  16 bits answered with a JSON `400` or a normal `TYPE ERROR`.
+- **Browser hardening.** A strict `Content-Security-Policy`
+  (`default-src 'none'`, no inline script), `X-Content-Type-Options:
+  nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`,
+  `Permissions-Policy`, HSTS and `Cache-Control: no-store` on analysis
+  answers. The UI paints with `textContent`, never `innerHTML`.
+- **Container.** It runs as an unprivileged user and needs no writable path:
+
+  ```bash
+  docker run --read-only --tmpfs /tmp -p 5000:5000 pyngo
+  ```
+
+- **CI.** `pip-audit` against the exported lock, `bandit`, `semgrep`
+  (`p/python`), a Trivy scan of the image (HIGH/CRITICAL, fixed only) and an
+  Atheris run that sends arbitrary text through every phase and into the
+  emulator.
+
+[`SECURITY.md`](SECURITY.md) has the threat model and how to report a
+problem.
+
+## Run the object code (Go)
+
+`pyngo build` stops at bytes. [`tools/pyngo-run`](tools/pyngo-run) executes
+them:
+
+```bash
+uv run pyngo build examples/loop.pyn --json > loop.json
+cd tools/pyngo-run
+go run . ../../loop.json        # prints 03
+go run . -vars ../../loop.json  # also prints i = 3, TENS = 0, ONES = 3
+```
+
+It is a small 8086 executor for exactly the instructions the compiler emits:
+64 KB data and stack segments, `MOV`/`ADD`/`SUB`/`CMP`/`MUL`/`DIV`,
+`PUSH`/`POP`, jumps, `CALL`/`RET`, `INT 21H` with `AH=02H` and `HLT`. It has
+no dependency outside the Go standard library, and its golden tests compare
+the output **and** the instruction count with the Python emulator, so a
+decoding difference cannot pass unnoticed.
 
 ## Documentation
 
@@ -140,11 +192,14 @@ A Spanish summary of the project is in [`README.es.md`](README.es.md).
 ```bash
 docker build -t pyngo .
 docker run -p 5000:5000 pyngo
+# with a read-only root filesystem, as the app needs no writable path:
+docker run --read-only --tmpfs /tmp -p 5000:5000 pyngo
 ```
 
 The image is two stages: `ghcr.io/astral-sh/uv` resolves and installs the
-dependencies, then a slim `python:3.12-slim` runs `gunicorn` on `$PORT`
-(5000 by default) and answers `/healthz` with `{"status": "ok"}`.
+dependencies, then a slim `python:3.12-slim` runs `gunicorn` as the unprivileged
+user `pyngo` (uid 10001) on `$PORT` (5000 by default), with a `HEALTHCHECK`
+that polls `/healthz` (`{"status": "ok"}`).
 
 [`render.yaml`](render.yaml) deploys the same image as a Render web service
 with a health check. The free plan sleeps after inactivity, so the first
@@ -157,8 +212,9 @@ milliseconds.
 src/pyngo/   tokens.py cursor.py lexer.py parser.py semantic.py
              ir.py encoder.py codegen.py app.py cli.py
 web/         index.html script.js style.css
-tests/       test_compiler.py test_encoder.py test_codegen.py
-             test_differential.py differential/{emulator,generator,reference}.py
+tests/       test_compiler.py test_encoder.py test_codegen.py test_app.py
+             test_cli.py test_differential.py differential/ fuzz/
+tools/       pyngo-run/ (Go executor: main.go object.go machine.go)
 docs/        grammar.md errors.md architecture.md limitations.md adr/ demo.gif
 examples/    loop.pyn
 ```

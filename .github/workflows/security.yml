@@ -1,0 +1,65 @@
+name: Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "0 5 * * 1" # Mondays: a fresh advisory database, even without pushes
+
+permissions:
+  contents: read
+
+jobs:
+  code-and-dependencies:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --locked
+
+      # The lock file is the truth: audit exactly what the image installs.
+      - name: Audit the locked dependencies
+        run: |
+          uv export --frozen --no-dev --no-emit-project --format requirements-txt -o requirements-audit.txt
+          uvx pip-audit -r requirements-audit.txt
+
+      - name: Bandit
+        run: uvx bandit -q -r src/pyngo
+
+      - name: Semgrep
+        run: uvx semgrep --config p/python --error --quiet src/pyngo
+
+  container:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Build the image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          load: true
+          tags: pyngo:scan
+
+      # OS packages and Python wheels, as they land in the final layer.
+      - name: Scan the image
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: pyngo:scan
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          severity: HIGH,CRITICAL
+          vuln-type: os,library

@@ -1,6 +1,7 @@
 """Command-line interface for Pyngo."""
 
 import argparse
+import json
 import os
 import sys
 from pathlib import Path
@@ -60,32 +61,40 @@ def print_object_code(
         print(f"{row['address']:<20}{row['hex']:<20}{row['text']}")
 
 
-def build(path: Path) -> int:
+def build(path: Path, as_json: bool = False) -> int:
     source = read_source(path)
 
     is_valid, errors, tokens, symbol_table = run_front_end(source)
     if not is_valid:
-        print_errors(errors)
-        return 1
-
-    print("Syntax OK")
-    print("Semantic OK")
+        return report_errors(errors, as_json)
 
     try:
         ir_rows = generate_ir(symbol_table, tokens)
     except IRError as error:
-        print_errors([str(error)])
-        return 1
-
-    print_ir(ir_rows)
+        return report_errors([str(error)], as_json)
 
     is_valid, data, code, errors = generate_object_code(tokens, symbol_table)
     if not is_valid:
-        print_errors(errors)
-        return 1
+        return report_errors(errors, as_json)
 
+    if as_json:
+        print(json.dumps({"ok": True, "data": data, "code": code, "errors": []}))
+        return 0
+
+    print("Syntax OK")
+    print("Semantic OK")
+    print_ir(ir_rows)
     print_object_code(data, code)
     return 0
+
+
+# In JSON mode the caller (pyngo-run, a script) reads one object, never prose.
+def report_errors(errors: list[str], as_json: bool) -> int:
+    if as_json:
+        print(json.dumps({"ok": False, "data": [], "code": [], "errors": errors}))
+    else:
+        print_errors(errors)
+    return 1
 
 
 def check(path: Path) -> int:
@@ -116,6 +125,11 @@ def make_parser() -> argparse.ArgumentParser:
 
     build_parser = commands.add_parser("build", help="compile a .pyn file and print IR + object code")
     _ = build_parser.add_argument("file", type=Path)
+    _ = build_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="print one JSON object (data + code) instead of the readable report",
+    )
 
     check_parser = commands.add_parser("check", help="run lexer, parser and semantic checks")
     _ = check_parser.add_argument("file", type=Path)
@@ -133,7 +147,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.command == "build":
-        return build(args.file)
+        return build(args.file, args.json)
     if args.command == "check":
         return check(args.file)
     if args.command == "serve":

@@ -27,7 +27,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 # A fixed unprivileged user: the process never needs to write anything.
-RUN useradd --create-home --uid 10001 pyngo
+# Upgrade base OS packages so fixed HIGH/CRITICAL CVEs (e.g. libzstd1) are patched.
+RUN apt-get update \
+    && apt-get upgrade -y --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --create-home --uid 10001 pyngo
 
 COPY --from=builder --chown=pyngo:pyngo /app/.venv /app/.venv
 

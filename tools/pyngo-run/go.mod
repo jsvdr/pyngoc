@@ -1,3 +1,3 @@
 module github.com/jsvdr/pyngoc/tools/pyngo-run
 
-go 1.25
+go 1.26
